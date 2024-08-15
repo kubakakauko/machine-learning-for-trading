@@ -60,10 +60,16 @@ It is not necessary to try and install all libraries at once because this increa
 
 > As of August 2024, the `ml4t` channel is no longer available in conda. To begin, please use the provided dockerfile instead. The pyproject.toml file has been verified to work with poetry on conda python version 3.10 and 3.11 locally without docker.
 
+#### Build docker image on apple silicon
 ```
 docker build -t ml4t-project -f docker/Dockerfile.applesilicon .
 ```
 
+#### Build docker image on x86_64
+```
+docker build -t ml4t-project -f docker/Dockerfile.x86 .
+```
+#### Run docker image
 ```
 docker run -p 8888:8888 -e QUANDL_API_KEY=yourkey -v $(pwd):/app ml4t-project
 ```
