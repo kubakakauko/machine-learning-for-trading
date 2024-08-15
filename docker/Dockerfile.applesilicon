@@ -1,0 +1,47 @@
+FROM python:3.10-bullseye
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    software-properties-common \
+    git \
+    libatlas-base-dev \
+    gfortran \
+    pkg-config \
+    libfreetype6-dev \
+    hdf5-tools \
+    libhdf5-dev \
+    libhdf5-serial-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \
+    tar -xvzf ta-lib-0.4.0-src.tar.gz && \
+    cd ta-lib/ && \
+    ./configure --prefix=/usr --build=aarch64-unknown-linux-gnu && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -rf ta-lib-0.4.0-src.tar.gz ta-lib/
+
+ENV LD_LIBRARY_PATH=/usr/lib:$LD_LIBRARY_PATH
+ENV TA_LIBRARY_PATH=/usr/lib
+ENV TA_INCLUDE_PATH=/usr/include
+
+RUN curl -sSL https://install.python-poetry.org | python3 -
+
+ENV PATH="${PATH}:/root/.local/bin"
+
+COPY pyproject.toml poetry.lock* ./
+
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --no-root --only main
+
+RUN pip install h5py || true
+
+EXPOSE 8888
+
+# Run JupyterLab when the container launches
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
