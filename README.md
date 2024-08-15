@@ -58,6 +58,16 @@ The code examples rely on a wide range of Python libraries from the data science
 
 It is not necessary to try and install all libraries at once because this increases the likeliihood of encountering version conflicts. Instead, we recommend that you install the libraries required for a specific chapter as you go along.
 
+> As of August 2024, the `ml4t` channel is no longer available in conda. To begin, please use the provided dockerfile instead. The pyproject.toml file has been verified to work with poetry on conda python version 3.10 and 3.11 locally without docker.
+
+```
+docker build -t ml4t-project -f docker/Dockerfile.applesilicon .
+```
+
+```
+docker run -p 8888:8888 -e QUANDL_API_KEY=yourkey -v $(pwd):/app ml4t-project
+```
+
 > Update March 2022: `zipline-reloaded`, `pyfolio-reloaded`, `alphalens-reloaded`, and `empyrical-reloaded` are now available on the `conda-forge` channel. The channel `ml4t` only contains outdated versions and will soon be removed.
 
 > Update April 2021: with the update of [Zipline](https://zipline.ml4trading.io), it is no longer necessary to use Docker. The installation instructions now refer to OS-specific environment files that should simplify your running of the notebooks.
