@@ -74,6 +74,11 @@ docker build -t ml4t-project -f docker/Dockerfile.x86 .
 docker run -p 8888:8888 -e QUANDL_API_KEY=yourkey -v $(pwd):/app ml4t-project
 ```
 
+#### Run docker image (on Windows)
+```
+docker run -p 8888:8888 -e QUANDL_API_KEY=yourkey -v ${PWD}:/app ml4t-project
+```
+
 > Update March 2022: `zipline-reloaded`, `pyfolio-reloaded`, `alphalens-reloaded`, and `empyrical-reloaded` are now available on the `conda-forge` channel. The channel `ml4t` only contains outdated versions and will soon be removed.
 
 > Update April 2021: with the update of [Zipline](https://zipline.ml4trading.io), it is no longer necessary to use Docker. The installation instructions now refer to OS-specific environment files that should simplify your running of the notebooks.
