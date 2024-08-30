@@ -1,3 +1,14 @@
 .DS_Store
 .lsp_symlink
 .ipynb_checkpoints
+data/*
+data
+Notebooks/mlruns
+*.pyc
+*.db
+.vscode
+Notebooks/minute
+Notebooks/strategies/**/*.png
+Notebooks/*.h5
+Notebooks/**/mlruns/**/
+07_linear_models/data.h5
