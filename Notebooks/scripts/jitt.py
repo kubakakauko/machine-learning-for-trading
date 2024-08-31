@@ -89,13 +89,17 @@ def calculate_features(group):
     return group
 
 def prepare_data(df, forward_days=5):
-    df['target'] = (df.groupby('symbol')['close'].shift(-forward_days) > df['close']).astype(int)
+    df = df.copy()
+    df.loc[:, 'target'] = (df.groupby('symbol')['close'].shift(-forward_days) > df['close']).astype(int)
+    df = df.drop('model_pred', axis=1)
     df = df.dropna()
     
-    features = ['roc_5', 'roc_10', 'roc_20', 'roc_60', 'roc_120', 'roc_250',
-                'rsi_3', 'rsi_5', 'rsi_10', 'rsi_20',
-                'qp_3', 'qp_5', 'qp_10', 'qp_20',
-                'ibs', 'natr', 'dist_sma_200', 'turnover']
+    
+    features = ['open', 'high', 'low', 'close', 'volume', 'adjusted',
+       'return_3', 'qp_3', 'return_5', 'qp_5', 'return_10', 'qp_10',
+       'return_20', 'qp_20', 'rsi_3', 'rsi_5', 'rsi_10', 'rsi_20', 'sma_200',
+       'atr', 'roc_5', 'roc_10', 'roc_20', 'roc_60', 'roc_120', 'roc_250',
+       'ibs', 'natr', 'dist_sma_200', 'turnover']
     
     X = df[features]
     y = df['target']
@@ -104,7 +108,8 @@ def prepare_data(df, forward_days=5):
     for col in X.columns:
         lower_bound = X[col].quantile(0.01)
         upper_bound = X[col].quantile(0.99)
-        X[col] = X[col].clip(lower_bound, upper_bound)
+        X.loc[:, col] = X[col].clip(lower_bound, upper_bound)
+
     
     return X, y
 
@@ -122,20 +127,62 @@ def train_model(df, to_year, lookback_years=15):
     
     return model
 
-def train_and_predict(df, symbol, to_year, lookback_years=15):
+def train_and_predict(df, symbol, to_year, lookback_years=5):
     start_year = to_year - lookback_years
     end_year = to_year - 1
     
-    train_data = df[(df['date'].dt.year >= start_year) & (df['date'].dt.year <= end_year)]
+    train_data = df[(df['symbol'] == symbol) & (df['date'].dt.year >= start_year) & (df['date'].dt.year <= end_year)]
+    test_data = df[(df['symbol'] == symbol) & (df['date'].dt.year == to_year)]
+
+    if len(train_data) < 2:
+        print(f"Not enough data to train model for symbol {symbol} in year {to_year}")
+        return None, np.full(len(test_data), np.nan)
     
     X, y = prepare_data(train_data)
+    X_test, y_test = prepare_data(test_data)
     
+
     X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.3, random_state=42)
     
-    model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', n_jobs=-1)
-    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=True)
+    model = XGBClassifier(eval_metric='logloss', n_jobs=-1)
+    model.fit(X_train, y_train, eval_set=[(X_val, y_val)], verbose=False)
     
-    return model.predict_proba(X_test)[:, 1]
+    # 01 classification
+    return model, model.predict_proba(X_test)[:, 1]
+
+def process_symbol(df, symbol, unique_years):
+    print(f"Processing symbol: {symbol}")
+    symbol_data = df[df['symbol'] == symbol]
+    latest_year = symbol_data['date'].dt.year.max()
+    
+    results = []
+    for year in range(2022, 2023):
+        model, predictions = train_and_predict(df, symbol, year)
+        if model is not None:
+            mask = (df['symbol'] == symbol) & (df['date'].dt.year == year)
+            results.append((mask, predictions))
+    
+    return symbol, results, model if model is not None else None
+
+def main_modelpred(df):
+    df['model_pred'] = np.nan
+    unique_years = sorted(df['date'].dt.year.unique())
+    unique_symbols = df['symbol'].unique()[:4]
+
+    num_cores = multiprocessing.cpu_count()
+    
+    with ProcessPoolExecutor(max_workers=num_cores) as executor:
+        futures = [executor.submit(process_symbol, df, symbol, unique_years) for symbol in unique_symbols]
+        results = [future.result() for future in futures]
+
+    modelmap = {}
+    for symbol, symbol_results, model in results:
+        for mask, predictions in symbol_results:
+            df.loc[mask, 'model_pred'] = predictions
+        modelmap[symbol] = model
+
+    return df, modelmap
+    
 
 def main():
     # Load your data here
@@ -168,9 +215,9 @@ def main():
         latest_year = symbol_data['date'].dt.year.max()
         
         for year in range(unique_years[4], latest_year + 1):
-            model = train_and_predict(df, symbol, year)
+            model, predictions = train_and_predict(df, symbol, year)
             mask = (df['symbol'] == symbol) & (df['date'].dt.year == year)
-            df.loc[mask, 'model_pred'] = model
+            df.loc[mask, 'model_pred'] = predictions
             
             if year == latest_year:
                 modelmap[symbol] = model
@@ -192,9 +239,17 @@ if __name__ == '__main__':
     # Read the saved HDF5 file
     saved_filename = "data/processed_data_20240830_154643.h5"
     read_df = pd.read_hdf(saved_filename, key='df')
-    model = train_model(read_df, 2022)
+    # model = train_model(read_df, 2022)
+    
+    df, modelmap = main_modelpred(read_df)
     
     print("\nReading the saved file:")
     print("Read DataFrame shape:", read_df.shape)
     print("First few rows of the read DataFrame:")
-    print(read_df.head())
+    print(df.head())
+    
+    # Generate timestamp for the filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f'data/processed_data_with_each_symbol_model_preds_{timestamp}.h5'
+    df.to_hdf(filename, key='df', mode='w', format='table')
+    print(f"Processed data saved to '{filename}'")
