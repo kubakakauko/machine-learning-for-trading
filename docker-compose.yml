@@ -1,18 +1,24 @@
 services:
   jupyter-quant:
-    image: gnzsnz/jupyter-quant:${IMAGE_VERSION}
+    # image: gnzsnz/jupyter-quant:${IMAGE_VERSION}
     environment:
       APT_PROXY: ${APT_PROXY:-}
       BYODF: ${BYODF:-}
       SSH_KEYDIR: ${SSH_KEYDIR:-}
       TZ: ${QUANT_TZ:-}
+      QUANDL_API_KEY: ${QUANDL_API_KEY}
+
+    build:
+      context: .
+      dockerfile: Docker/Dockerfile.applesilicon
     restart: unless-stopped
     ports:
-      - ${LISTEN_PORT}:8888
+      - 8888:8888
     volumes:
-      - quant_conf:/home/gordon/.config
-      - quant_data:/home/gordon/.local
-      - ./:/home/gordon/Notebooks
+      - quant_conf:/home/kuba/.config
+      - quant_data:/home/kuba/.local
+      - ${PWD}:/app
+
 
 volumes:
   quant_conf:

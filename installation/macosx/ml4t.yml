@@ -173,6 +173,7 @@ dependencies:
   - zlib-ng=2.2.1=h00cdb27_0
   - zstandard=0.23.0=py310hd9c37c8_0
   - zstd=1.5.6=hb46c0d2_0
+  - mplfinance==0.12.7a17
   - pip:
     - alembic==1.13.2
     - alphalens-reloaded==0.4.4
