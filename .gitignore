@@ -1,4 +1,5 @@
 .DS_Store
+.Trash-0/
 .lsp_symlink
 .ipynb_checkpoints
 data/*
