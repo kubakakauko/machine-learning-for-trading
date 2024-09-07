@@ -7,10 +7,11 @@ services:
       SSH_KEYDIR: ${SSH_KEYDIR:-}
       TZ: ${QUANT_TZ:-}
       QUANDL_API_KEY: ${QUANDL_API_KEY}
-
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: "admin" # Replace with a secure toke
     build:
       context: .
-      dockerfile: Docker/Dockerfile.applesilicon
+      dockerfile: Docker/Dockerfile.notebook
     restart: unless-stopped
     ports:
       - 8888:8888
@@ -18,7 +19,6 @@ services:
       - quant_conf:/home/kuba/.config
       - quant_data:/home/kuba/.local
       - ${PWD}:/app
-
 
 volumes:
   quant_conf:

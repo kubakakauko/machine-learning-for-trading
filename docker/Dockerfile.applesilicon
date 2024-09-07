@@ -17,6 +17,10 @@ RUN apt-get update && apt-get install -y \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Node.js 20.x
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
+
 RUN wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \
     tar -xvzf ta-lib-0.4.0-src.tar.gz && \
     cd ta-lib/ && \
@@ -31,15 +35,20 @@ ENV TA_LIBRARY_PATH=/usr/lib
 ENV TA_INCLUDE_PATH=/usr/include
 
 RUN curl -sSL https://install.python-poetry.org | python3 -
-
 ENV PATH="${PATH}:/root/.local/bin"
 
 COPY pyproject.toml poetry.lock* ./
-
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --no-root --only main
+    && poetry install --no-interaction --no-ansi --no-root --all-extras
+
+# Install JupyterLab and related packages
+RUN pip install --upgrade pip
+RUN pip install jupyterlab ipywidgets jupyter-lsp
 
 RUN pip install h5py || true
+
+# Build JupyterLab
+RUN jupyter lab build
 
 EXPOSE 8888
 
