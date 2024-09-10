@@ -11,7 +11,7 @@ services:
       JUPYTER_TOKEN: "admin" # Replace with a secure toke
     build:
       context: .
-      dockerfile: Docker/Dockerfile.notebook
+      dockerfile: Docker/Dockerfile.applesilicon
     restart: unless-stopped
     ports:
       - 8888:8888
