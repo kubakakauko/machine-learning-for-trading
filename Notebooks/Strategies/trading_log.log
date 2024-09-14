@@ -1,0 +1,227 @@
+2024-09-14 15:39:59,087 INFO:Fetched 1601 candles from 2024-09-04 15:33:00+01:00 to 2024-09-14 15:33:00+01:00
+2024-09-14 15:39:59,087 INFO:Processing historical data to simulate trades...
+2024-09-14 15:39:59,090 INFO:Historical Entry Short at 57096.44 on 2024-09-05 14:57:00+01:00 with position size 0.311747
+2024-09-14 15:39:59,092 INFO:Historical Exit Short at 57123.22 on 2024-09-05 15:15:00+01:00 with PnL: -8.35
+2024-09-14 15:39:59,092 INFO:Historical Entry Short at 57037.47 on 2024-09-05 15:24:00+01:00 with position size 0.257158
+2024-09-14 15:39:59,093 INFO:Historical Exit Short at 56260.38 on 2024-09-05 16:18:00+01:00 with PnL: 199.83
+2024-09-14 15:39:59,094 INFO:Historical Entry Short at 56471.75 on 2024-09-06 13:36:00+01:00 with position size 0.316318
+2024-09-14 15:39:59,095 INFO:Historical Exit Short at 56793.94 on 2024-09-06 14:12:00+01:00 with PnL: -101.91
+2024-09-14 15:39:59,095 INFO:Historical Entry Short at 54319.62 on 2024-09-06 18:15:00+01:00 with position size 0.219312
+2024-09-14 15:39:59,096 INFO:Historical Exit Short at 53399.51 on 2024-09-06 20:30:00+01:00 with PnL: 201.79
+2024-09-14 15:39:59,096 INFO:Historical Entry Short at 53889.05 on 2024-09-06 20:39:00+01:00 with position size 0.226319
+2024-09-14 15:39:59,096 INFO:Historical Exit Short at 52979.60 on 2024-09-06 21:42:00+01:00 with PnL: 205.83
+2024-09-14 15:39:59,100 INFO:Historical Entry Long at 54945.46 on 2024-09-09 15:24:00+01:00 with position size 0.337223
+2024-09-14 15:39:59,101 INFO:Historical Exit Long at 55568.02 on 2024-09-09 17:03:00+01:00 with PnL: 209.94
+2024-09-14 15:39:59,101 INFO:Historical Entry Long at 56684.61 on 2024-09-10 01:18:00+01:00 with position size 0.411567
+2024-09-14 15:39:59,102 INFO:Historical Exit Long at 56776.90 on 2024-09-10 02:39:00+01:00 with PnL: 37.98
+2024-09-14 15:39:59,104 INFO:Historical Entry Short at 56863.56 on 2024-09-11 13:54:00+01:00 with position size 0.386661
+2024-09-14 15:39:59,104 INFO:Historical Exit Short at 56307.77 on 2024-09-11 14:48:00+01:00 with PnL: 214.90
+2024-09-14 15:39:59,104 INFO:Historical Entry Short at 56870.16 on 2024-09-11 16:36:00+01:00 with position size 0.262717
+2024-09-14 15:39:59,105 INFO:Historical Exit Short at 57158.21 on 2024-09-11 17:48:00+01:00 with PnL: -75.68
+2024-09-14 15:39:59,106 INFO:Historical Entry Short at 58160.90 on 2024-09-12 15:15:00+01:00 with position size 0.358562
+2024-09-14 15:39:59,106 INFO:Historical Exit Short at 57553.79 on 2024-09-12 15:51:00+01:00 with PnL: 217.69
+2024-09-14 15:39:59,108 INFO:Historical Entry Long at 57684.63 on 2024-09-13 13:18:00+01:00 with position size 0.687191
+2024-09-14 15:39:59,109 INFO:Historical Exit Long at 58007.74 on 2024-09-13 14:39:00+01:00 with PnL: 222.04
+2024-09-14 15:39:59,128 INFO:Initial historical trades processed.
+2024-09-14 15:39:59,130 INFO:Dash is running on http://127.0.0.1:8050/
+
+2024-09-14 15:39:59,130 INFO:Dash app running at http://127.0.0.1:8050/
+2024-09-14 15:39:59,131 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 15:39:59,145 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:8050
+2024-09-14 15:39:59,145 INFO:[33mPress CTRL+C to quit[0m
+2024-09-14 15:40:09,136 INFO:127.0.0.1 - - [14/Sep/2024 15:40:09] "GET / HTTP/1.1" 200 -
+2024-09-14 15:40:09,414 INFO:127.0.0.1 - - [14/Sep/2024 15:40:09] "GET /_dash-layout HTTP/1.1" 200 -
+2024-09-14 15:40:09,415 INFO:127.0.0.1 - - [14/Sep/2024 15:40:09] "GET /_dash-dependencies HTTP/1.1" 200 -
+2024-09-14 15:40:09,432 INFO:127.0.0.1 - - [14/Sep/2024 15:40:09] "GET /_favicon.ico?v=2.18.1 HTTP/1.1" 200 -
+2024-09-14 15:40:09,437 INFO:127.0.0.1 - - [14/Sep/2024 15:40:09] "[36mGET /_dash-component-suites/dash/dcc/async-graph.js HTTP/1.1[0m" 304 -
+2024-09-14 15:40:09,459 INFO:127.0.0.1 - - [14/Sep/2024 15:40:09] "[36mGET /_dash-component-suites/plotly/package_data/plotly.min.js HTTP/1.1[0m" 304 -
+2024-09-14 15:40:09,691 INFO:127.0.0.1 - - [14/Sep/2024 15:40:09] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 15:40:59,150 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 15:41:06,265 INFO:Live trading stopped by user.
+2024-09-14 15:46:45,833 INFO:Fetched 1601 candles from 2024-09-04 15:42:00+01:00 to 2024-09-14 15:42:00+01:00
+2024-09-14 15:46:45,834 INFO:Processing historical data to simulate trades...
+2024-09-14 15:46:45,837 INFO:Historical Entry Short at 57096.44 on 2024-09-05 14:57:00+01:00 with position size 0.311747
+2024-09-14 15:46:45,839 INFO:Historical Exit Short at 57123.22 on 2024-09-05 15:15:00+01:00 with PnL: -8.35
+2024-09-14 15:46:45,839 INFO:Historical Entry Short at 57037.47 on 2024-09-05 15:24:00+01:00 with position size 0.257158
+2024-09-14 15:46:45,840 INFO:Historical Exit Short at 56260.39 on 2024-09-05 16:18:00+01:00 with PnL: 199.83
+2024-09-14 15:46:45,843 INFO:Historical Entry Short at 56471.75 on 2024-09-06 13:36:00+01:00 with position size 0.316318
+2024-09-14 15:46:45,844 INFO:Historical Exit Short at 56793.94 on 2024-09-06 14:12:00+01:00 with PnL: -101.91
+2024-09-14 15:46:45,845 INFO:Historical Entry Short at 54319.62 on 2024-09-06 18:15:00+01:00 with position size 0.219312
+2024-09-14 15:46:45,846 INFO:Historical Exit Short at 53399.51 on 2024-09-06 20:30:00+01:00 with PnL: 201.79
+2024-09-14 15:46:45,846 INFO:Historical Entry Short at 53889.05 on 2024-09-06 20:39:00+01:00 with position size 0.226319
+2024-09-14 15:46:45,847 INFO:Historical Exit Short at 52979.60 on 2024-09-06 21:42:00+01:00 with PnL: 205.83
+2024-09-14 15:46:45,851 INFO:Historical Entry Long at 54945.46 on 2024-09-09 15:24:00+01:00 with position size 0.337223
+2024-09-14 15:46:45,852 INFO:Historical Exit Long at 55568.02 on 2024-09-09 17:03:00+01:00 with PnL: 209.94
+2024-09-14 15:46:45,852 INFO:Historical Entry Long at 56684.61 on 2024-09-10 01:18:00+01:00 with position size 0.411567
+2024-09-14 15:46:45,853 INFO:Historical Exit Long at 56776.90 on 2024-09-10 02:39:00+01:00 with PnL: 37.98
+2024-09-14 15:46:45,855 INFO:Historical Entry Short at 56863.56 on 2024-09-11 13:54:00+01:00 with position size 0.386661
+2024-09-14 15:46:45,856 INFO:Historical Exit Short at 56307.77 on 2024-09-11 14:48:00+01:00 with PnL: 214.90
+2024-09-14 15:46:45,856 INFO:Historical Entry Short at 56870.16 on 2024-09-11 16:36:00+01:00 with position size 0.262717
+2024-09-14 15:46:45,856 INFO:Historical Exit Short at 57158.21 on 2024-09-11 17:48:00+01:00 with PnL: -75.68
+2024-09-14 15:46:45,859 INFO:Historical Entry Short at 58160.90 on 2024-09-12 15:15:00+01:00 with position size 0.358562
+2024-09-14 15:46:45,860 INFO:Historical Exit Short at 57553.79 on 2024-09-12 15:51:00+01:00 with PnL: 217.69
+2024-09-14 15:46:45,861 INFO:Historical Entry Long at 57684.63 on 2024-09-13 13:18:00+01:00 with position size 0.687191
+2024-09-14 15:46:45,862 INFO:Historical Exit Long at 58007.74 on 2024-09-13 14:39:00+01:00 with PnL: 222.04
+2024-09-14 15:46:45,872 INFO:Initial historical trades processed.
+2024-09-14 15:46:45,872 INFO:Dash app running at http://127.0.0.1:8050/
+2024-09-14 15:46:45,872 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 15:46:45,872 INFO:Dash is running on http://127.0.0.1:8050/
+
+2024-09-14 15:46:45,879 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:8050
+2024-09-14 15:46:45,879 INFO:[33mPress CTRL+C to quit[0m
+2024-09-14 15:46:50,652 INFO:127.0.0.1 - - [14/Sep/2024 15:46:50] "GET / HTTP/1.1" 200 -
+2024-09-14 15:46:50,814 INFO:127.0.0.1 - - [14/Sep/2024 15:46:50] "GET /_dash-layout HTTP/1.1" 200 -
+2024-09-14 15:46:50,815 INFO:127.0.0.1 - - [14/Sep/2024 15:46:50] "GET /_dash-dependencies HTTP/1.1" 200 -
+2024-09-14 15:46:50,821 INFO:127.0.0.1 - - [14/Sep/2024 15:46:50] "GET /_favicon.ico?v=2.18.1 HTTP/1.1" 200 -
+2024-09-14 15:46:50,835 INFO:127.0.0.1 - - [14/Sep/2024 15:46:50] "[36mGET /_dash-component-suites/dash/dcc/async-graph.js HTTP/1.1[0m" 304 -
+2024-09-14 15:46:50,849 INFO:127.0.0.1 - - [14/Sep/2024 15:46:50] "[36mGET /_dash-component-suites/plotly/package_data/plotly.min.js HTTP/1.1[0m" 304 -
+2024-09-14 15:46:51,065 INFO:127.0.0.1 - - [14/Sep/2024 15:46:51] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 15:47:11,377 INFO:Live trading stopped by user.
+2024-09-14 15:59:55,423 INFO:Fetched 1601 candles from 2024-09-04 15:51:00+01:00 to 2024-09-14 15:51:00+01:00
+2024-09-14 15:59:55,423 INFO:Processing historical data to simulate trades...
+2024-09-14 15:59:55,426 INFO:Historical Entry Short at 57096.44 on 2024-09-05 14:57:00+01:00 with position size 0.311747
+2024-09-14 15:59:55,429 INFO:Historical Exit Short at 57116.81 on 2024-09-05 15:15:00+01:00 with PnL: -6.35
+2024-09-14 15:59:55,429 INFO:Historical Entry Short at 57037.47 on 2024-09-05 15:24:00+01:00 with position size 0.257210
+2024-09-14 15:59:55,429 INFO:Historical Exit Short at 56312.88 on 2024-09-05 18:06:00+01:00 with PnL: 186.37
+2024-09-14 15:59:55,431 INFO:Historical Entry Short at 56471.75 on 2024-09-06 13:36:00+01:00 with position size 0.315962
+2024-09-14 15:59:55,431 INFO:Historical Exit Short at 56793.94 on 2024-09-06 14:12:00+01:00 with PnL: -101.80
+2024-09-14 15:59:55,432 INFO:Historical Entry Short at 54319.62 on 2024-09-06 18:15:00+01:00 with position size 0.219066
+2024-09-14 15:59:55,432 INFO:Historical Exit Short at 53704.86 on 2024-09-06 20:39:00+01:00 with PnL: 134.67
+2024-09-14 15:59:55,436 INFO:Historical Entry Long at 54945.46 on 2024-09-09 15:24:00+01:00 with position size 0.328090
+2024-09-14 15:59:55,436 INFO:Time-based exit for Long trade at 56519.38
+2024-09-14 15:59:55,437 INFO:Historical Exit Long at 56519.38 on 2024-09-09 19:27:00+01:00 with PnL: 516.39
+2024-09-14 15:59:55,437 INFO:Historical Entry Long at 56684.61 on 2024-09-10 01:18:00+01:00 with position size 0.412418
+2024-09-14 15:59:55,438 INFO:Historical Exit Long at 56657.67 on 2024-09-10 03:15:00+01:00 with PnL: -11.11
+2024-09-14 15:59:55,440 INFO:Historical Entry Short at 56863.56 on 2024-09-11 13:54:00+01:00 with position size 0.385691
+2024-09-14 15:59:55,440 INFO:Historical Exit Short at 55975.82 on 2024-09-11 16:00:00+01:00 with PnL: 342.40
+2024-09-14 15:59:55,440 INFO:Historical Entry Short at 56870.16 on 2024-09-11 16:36:00+01:00 with position size 0.265128
+2024-09-14 15:59:55,441 INFO:Historical Exit Short at 57093.00 on 2024-09-11 17:48:00+01:00 with PnL: -59.08
+2024-09-14 15:59:55,442 INFO:Historical Entry Short at 58160.90 on 2024-09-12 15:15:00+01:00 with position size 0.362422
+2024-09-14 15:59:55,442 INFO:Historical Exit Short at 57890.10 on 2024-09-12 17:39:00+01:00 with PnL: 98.14
+2024-09-14 15:59:55,444 INFO:Historical Entry Long at 57684.63 on 2024-09-13 13:18:00+01:00 with position size 0.687042
+2024-09-14 15:59:55,444 INFO:Time-based exit for Long trade at 59624.95
+2024-09-14 15:59:55,445 INFO:Historical Exit Long at 59624.95 on 2024-09-13 17:21:00+01:00 with PnL: 1333.08
+2024-09-14 15:59:55,457 INFO:Initial historical trades processed.
+2024-09-14 15:59:55,458 INFO:Dash app running at http://127.0.0.1:8050/
+2024-09-14 15:59:55,458 INFO:Dash is running on http://127.0.0.1:8050/
+
+2024-09-14 15:59:55,458 INFO:Sleeping for 5.54 seconds until next candle.
+2024-09-14 15:59:55,474 INFO:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:8050
+2024-09-14 15:59:55,474 INFO:[33mPress CTRL+C to quit[0m
+2024-09-14 16:00:01,534 INFO:127.0.0.1 - - [14/Sep/2024 16:00:01] "GET / HTTP/1.1" 200 -
+2024-09-14 16:00:01,667 INFO:127.0.0.1 - - [14/Sep/2024 16:00:01] "GET /_dash-layout HTTP/1.1" 200 -
+2024-09-14 16:00:01,668 INFO:127.0.0.1 - - [14/Sep/2024 16:00:01] "GET /_dash-dependencies HTTP/1.1" 200 -
+2024-09-14 16:00:01,712 INFO:127.0.0.1 - - [14/Sep/2024 16:00:01] "[36mGET /_dash-component-suites/dash/dcc/async-graph.js HTTP/1.1[0m" 304 -
+2024-09-14 16:00:01,724 INFO:127.0.0.1 - - [14/Sep/2024 16:00:01] "[36mGET /_dash-component-suites/plotly/package_data/plotly.min.js HTTP/1.1[0m" 304 -
+2024-09-14 16:00:02,003 INFO:127.0.0.1 - - [14/Sep/2024 16:00:02] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:00:02,250 INFO:Signal at 2024-09-14 16:00:00+01:00: 0.0
+2024-09-14 16:00:02,251 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:01:01,912 INFO:127.0.0.1 - - [14/Sep/2024 16:01:01] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:01:02,258 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:02:02,284 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:02:03,384 INFO:127.0.0.1 - - [14/Sep/2024 16:02:03] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:03:02,293 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:03:04,780 INFO:127.0.0.1 - - [14/Sep/2024 16:03:04] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:04:02,303 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:04:05,818 INFO:127.0.0.1 - - [14/Sep/2024 16:04:05] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:05:02,307 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:05:06,187 INFO:127.0.0.1 - - [14/Sep/2024 16:05:06] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:05:08,430 INFO:127.0.0.1 - - [14/Sep/2024 16:05:08] "GET / HTTP/1.1" 200 -
+2024-09-14 16:05:08,550 INFO:127.0.0.1 - - [14/Sep/2024 16:05:08] "GET /_dash-layout HTTP/1.1" 200 -
+2024-09-14 16:05:08,552 INFO:127.0.0.1 - - [14/Sep/2024 16:05:08] "GET /_dash-dependencies HTTP/1.1" 200 -
+2024-09-14 16:05:08,600 INFO:127.0.0.1 - - [14/Sep/2024 16:05:08] "[36mGET /_dash-component-suites/dash/dcc/async-graph.js HTTP/1.1[0m" 304 -
+2024-09-14 16:05:08,606 INFO:127.0.0.1 - - [14/Sep/2024 16:05:08] "[36mGET /_dash-component-suites/plotly/package_data/plotly.min.js HTTP/1.1[0m" 304 -
+2024-09-14 16:05:08,768 INFO:127.0.0.1 - - [14/Sep/2024 16:05:08] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:06:02,321 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:06:09,848 INFO:127.0.0.1 - - [14/Sep/2024 16:06:09] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:07:02,334 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:07:09,771 INFO:127.0.0.1 - - [14/Sep/2024 16:07:09] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:08:02,365 INFO:Sleeping for 58.65 seconds until next candle.
+2024-09-14 16:08:09,795 INFO:127.0.0.1 - - [14/Sep/2024 16:08:09] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:09:01,733 INFO:Signal at 2024-09-14 16:09:00+01:00: 0.0
+2024-09-14 16:09:01,733 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:09:08,780 INFO:127.0.0.1 - - [14/Sep/2024 16:09:08] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:10:01,768 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:10:09,837 INFO:127.0.0.1 - - [14/Sep/2024 16:10:09] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:11:01,820 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:11:14,414 INFO:127.0.0.1 - - [14/Sep/2024 16:11:14] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:12:01,848 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:12:14,399 INFO:127.0.0.1 - - [14/Sep/2024 16:12:14] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:13:01,860 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:13:14,360 INFO:127.0.0.1 - - [14/Sep/2024 16:13:14] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:14:01,869 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:14:14,374 INFO:127.0.0.1 - - [14/Sep/2024 16:14:14] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:15:01,885 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:15:14,395 INFO:127.0.0.1 - - [14/Sep/2024 16:15:14] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:16:01,919 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:16:14,473 INFO:127.0.0.1 - - [14/Sep/2024 16:16:14] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:17:01,933 INFO:Sleeping for 59.07 seconds until next candle.
+2024-09-14 16:17:14,400 INFO:127.0.0.1 - - [14/Sep/2024 16:17:14] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:18:02,030 INFO:Signal at 2024-09-14 16:18:00+01:00: 0.0
+2024-09-14 16:18:02,031 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:18:14,436 INFO:127.0.0.1 - - [14/Sep/2024 16:18:14] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:19:02,038 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:19:18,677 INFO:127.0.0.1 - - [14/Sep/2024 16:19:18] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:20:02,054 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:20:18,674 INFO:127.0.0.1 - - [14/Sep/2024 16:20:18] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:21:02,068 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:21:18,692 INFO:127.0.0.1 - - [14/Sep/2024 16:21:18] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:22:02,082 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:22:18,699 INFO:127.0.0.1 - - [14/Sep/2024 16:22:18] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:23:02,091 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:23:18,688 INFO:127.0.0.1 - - [14/Sep/2024 16:23:18] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:24:02,101 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:24:18,711 INFO:127.0.0.1 - - [14/Sep/2024 16:24:18] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:25:02,124 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:25:18,744 INFO:127.0.0.1 - - [14/Sep/2024 16:25:18] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:26:02,143 INFO:Sleeping for 58.86 seconds until next candle.
+2024-09-14 16:26:20,130 INFO:127.0.0.1 - - [14/Sep/2024 16:26:20] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:27:01,681 INFO:Signal at 2024-09-14 16:27:00+01:00: 0.0
+2024-09-14 16:27:01,681 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:27:20,145 INFO:127.0.0.1 - - [14/Sep/2024 16:27:20] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:28:01,717 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:28:20,114 INFO:127.0.0.1 - - [14/Sep/2024 16:28:20] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:29:01,741 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:29:20,382 INFO:127.0.0.1 - - [14/Sep/2024 16:29:20] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:30:01,770 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:30:20,181 INFO:127.0.0.1 - - [14/Sep/2024 16:30:20] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:31:01,792 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:31:20,158 INFO:127.0.0.1 - - [14/Sep/2024 16:31:20] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:32:01,805 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:32:20,182 INFO:127.0.0.1 - - [14/Sep/2024 16:32:20] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:33:01,810 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:33:21,564 INFO:127.0.0.1 - - [14/Sep/2024 16:33:21] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:34:01,821 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:34:21,580 INFO:127.0.0.1 - - [14/Sep/2024 16:34:21] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:35:01,831 INFO:Sleeping for 59.17 seconds until next candle.
+2024-09-14 16:35:21,583 INFO:127.0.0.1 - - [14/Sep/2024 16:35:21] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:36:03,966 INFO:Signal at 2024-09-14 16:36:00+01:00: 0.0
+2024-09-14 16:36:03,966 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:36:21,581 INFO:127.0.0.1 - - [14/Sep/2024 16:36:21] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:37:03,971 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:37:21,604 INFO:127.0.0.1 - - [14/Sep/2024 16:37:21] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:38:03,979 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:38:21,613 INFO:127.0.0.1 - - [14/Sep/2024 16:38:21] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:39:03,995 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:39:21,631 INFO:127.0.0.1 - - [14/Sep/2024 16:39:21] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:40:04,007 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:40:23,014 INFO:127.0.0.1 - - [14/Sep/2024 16:40:23] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:41:04,015 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:41:22,991 INFO:127.0.0.1 - - [14/Sep/2024 16:41:22] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:42:04,052 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:42:23,085 INFO:127.0.0.1 - - [14/Sep/2024 16:42:23] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:43:04,064 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:43:23,009 INFO:127.0.0.1 - - [14/Sep/2024 16:43:23] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:44:04,069 INFO:Sleeping for 56.93 seconds until next candle.
+2024-09-14 16:44:23,056 INFO:127.0.0.1 - - [14/Sep/2024 16:44:23] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:45:01,708 INFO:Signal at 2024-09-14 16:45:00+01:00: 0.0
+2024-09-14 16:45:01,708 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:45:23,147 INFO:127.0.0.1 - - [14/Sep/2024 16:45:23] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:46:01,716 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:46:23,339 INFO:127.0.0.1 - - [14/Sep/2024 16:46:23] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:47:01,727 INFO:Sleeping for 60.00 seconds until next candle.
+2024-09-14 16:47:22,937 INFO:127.0.0.1 - - [14/Sep/2024 16:47:22] "POST /_dash-update-component HTTP/1.1" 200 -
+2024-09-14 16:47:34,148 INFO:Live trading stopped by user.
