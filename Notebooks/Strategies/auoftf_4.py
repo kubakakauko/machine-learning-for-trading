@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 
 import dash_bootstrap_components as dbc
 import numpy as np
-
 # %%
 import pandas as pd
 import pandas_ta as ta
@@ -31,8 +30,8 @@ from statsmodels.nonparametric.kernel_regression import KernelReg
 # %%
 # Configuration Parameters
 SYMBOL = "BTCUSDT"
-INTERVAL = "1m"  # Fetch 1-minute candles
-AGG_INTERVAL_MINUTES = 9  # Desired timeframe to aggregate to
+INTERVAL = "3m"  # Fetch 1-minute candles
+AGG_INTERVAL_MINUTES = 3  # Desired timeframe to aggregate to
 BANDWIDTH = 7  # Bandwidth for Nadaraya-Watson
 EMA_SLOW = 50
 EMA_FAST = 40
@@ -41,17 +40,20 @@ BACKCANDLES = 7
 SL_COEF = 1.5
 TP_SL_RATIO = 2.0
 SLIPPAGE = 0.0005
+NW_MULT = 2
+
 TRAIL_PERCENT = 0.00618  # Trailing percentage for both SL and TP
+
 HISTORICAL_DAYS = 10
 
 # Account and Risk Management
-ACCOUNT_BALANCE = 10000  # Example starting balance in USD
-RISK_PER_TRADE = 0.01  # Risk 1% of account per trade
+ACCOUNT_BALANCE = 100  # Example starting balance in USD
+RISK_PER_TRADE = 0.1  # Risk 1% of account per trade
 
-MAX_TRADE_DURATION = timedelta(hours=4)  # Close trades after 4 hours
+MAX_TRADE_DURATION = timedelta(hours=6)  # Close trades after 4 hours
 
 # Dash Configuration
-PLOT_UPDATE_INTERVAL = 60  # seconds
+PLOT_UPDATE_INTERVAL = 30  # seconds
 DASH_APP_NAME = "Live Trading Dashboard"
 
 # Timezone Configuration
@@ -289,7 +291,7 @@ def calculate_indicators(
     return df
 
 
-def calculate_nadaraya_watson(df, bandwidth=BANDWIDTH):
+def calculate_nadaraya_watson(df, bandwidth=BANDWIDTH, mult=NW_MULT):
     """
     Calculate Nadaraya-Watson envelopes.
     """
@@ -313,8 +315,8 @@ def calculate_nadaraya_watson(df, bandwidth=BANDWIDTH):
     std_dev = np.std(residuals)
 
     # Create the envelopes
-    df["Upper_Envelope"] = df["NW_Fitted"] + 2 * std_dev
-    df["Lower_Envelope"] = df["NW_Fitted"] - 2 * std_dev
+    df["Upper_Envelope"] = df["NW_Fitted"] + mult * std_dev
+    df["Lower_Envelope"] = df["NW_Fitted"] - mult * std_dev
 
     return df
 

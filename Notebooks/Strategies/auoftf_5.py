@@ -1,12 +1,11 @@
 # %%
 # %% [markdown]
-# # Nadaraya-Watson Envelope with EMA and Trailing Stop / TP for Live and Historical Data
+# # Nadaraya-Watson Envelope with EMA, Trailing Stop/TP, and Enhanced Features for Live and Historical Data
 
 # %% [markdown]
 # ## 1. Imports
 
 import logging
-import re
 import sys
 import threading
 import time
@@ -14,7 +13,6 @@ from datetime import datetime, timedelta
 
 import dash_bootstrap_components as dbc
 import numpy as np
-# %%
 import pandas as pd
 import pandas_ta as ta
 import plotly.graph_objects as go
@@ -27,11 +25,9 @@ from statsmodels.nonparametric.kernel_regression import KernelReg
 # %% [markdown]
 # ## 2. Configuration
 
-# %%
 # Configuration Parameters
 SYMBOL = "BTCUSDT"
-INTERVAL = "1m"  # Fetch 1-minute candles
-AGG_INTERVAL_MINUTES = 3  # Desired timeframe to aggregate to
+INTERVAL = "2m"  # Desired interval (ensure Binance supports this interval)
 BANDWIDTH = 7  # Bandwidth for Nadaraya-Watson
 EMA_SLOW = 50
 EMA_FAST = 40
@@ -40,17 +36,18 @@ BACKCANDLES = 7
 SL_COEF = 1.5
 TP_SL_RATIO = 2.0
 SLIPPAGE = 0.0005
-TRAIL_PERCENT = 0.00618
+TRAIL_PERCENT = 0.00618  # Trailing percentage for both SL and TP
 HISTORICAL_DAYS = 10
+NW_MULT = 2
 
 # Account and Risk Management
-ACCOUNT_BALANCE = 10000  # Example starting balance in USD
+ACCOUNT_BALANCE = 10000  # Starting balance in USD
 RISK_PER_TRADE = 0.01  # Risk 1% of account per trade
 
 MAX_TRADE_DURATION = timedelta(hours=4)  # Close trades after 4 hours
 
 # Dash Configuration
-PLOT_UPDATE_INTERVAL = 60  # seconds
+PLOT_UPDATE_INTERVAL = 30  # seconds
 DASH_APP_NAME = "Live Trading Dashboard"
 
 # Timezone Configuration
@@ -73,54 +70,37 @@ current_trade = None
 data_lock = threading.Lock()
 
 
-# Function to align datetime to the nearest previous interval
-def align_to_interval(dt, interval_minutes):
-    """
-    Align datetime to the nearest previous interval_minutes
-    """
-    discard = timedelta(
-        minutes=dt.minute % interval_minutes,
-        seconds=dt.second,
-        microseconds=dt.microsecond,
-    )
-    return dt - discard
-
-
 # %% [markdown]
 # ## 3. Fetch Historical Data
 
 
-# %%
 def fetch_historical_data(
     symbol=SYMBOL,
-    agg_interval_minutes=AGG_INTERVAL_MINUTES,
+    interval=INTERVAL,
     bandwidth=BANDWIDTH,
     ema_slow=EMA_SLOW,
     ema_fast=EMA_FAST,
     atr_length=ATR_LENGTH,
 ):
     """
-    Fetch historical data from Binance API, aggregate it into specified interval, and calculate indicators.
+    Fetch historical data from Binance API and calculate indicators.
     """
     base_url = "https://api.binance.com"
     endpoint = f"/api/v3/klines"
 
-    # Calculate end_time as the last complete aggregated candle
+    # Calculate start_time and end_time
     now = datetime.utcnow().replace(tzinfo=pytz.UTC)
-    end_time = align_to_interval(now, agg_interval_minutes)
+    end_time = now
 
-    # Start time is HISTORICAL_DAYS ago, aligned to aggregation interval
     start_time = end_time - timedelta(days=HISTORICAL_DAYS)
-    start_time = align_to_interval(start_time, agg_interval_minutes)
-
     start_ts = int(start_time.timestamp() * 1000)
     end_ts = int(end_time.timestamp() * 1000)
 
     all_candles = []
-    while start_ts < end_ts:
+    while True:
         params = {
             "symbol": symbol,
-            "interval": "1m",  # Fetch 1-minute candles
+            "interval": interval,
             "startTime": start_ts,
             "endTime": end_ts,
             "limit": 1000,  # Maximum allowed by Binance
@@ -143,7 +123,7 @@ def fetch_historical_data(
 
         start_ts = data[-1][0] + 1  # Start from the next candle
 
-    df_hist_1m = pd.DataFrame(
+    df_hist = pd.DataFrame(
         all_candles,
         columns=[
             "timestamp",
@@ -161,29 +141,12 @@ def fetch_historical_data(
         ],
     )
 
-    df_hist_1m["timestamp"] = pd.to_datetime(
-        df_hist_1m["timestamp"], unit="ms", utc=True
-    )
-    df_hist_1m.set_index("timestamp", inplace=True)
+    df_hist["timestamp"] = pd.to_datetime(df_hist["timestamp"], unit="ms", utc=True)
+    df_hist.set_index("timestamp", inplace=True)
 
-    df_hist_1m[["Open", "High", "Low", "Close", "Volume"]] = df_hist_1m[
+    df_hist[["Open", "High", "Low", "Close", "Volume"]] = df_hist[
         ["Open", "High", "Low", "Close", "Volume"]
     ].astype(float)
-
-    # Aggregate 1-minute candles into desired interval
-    df_hist = (
-        df_hist_1m.resample(f"{agg_interval_minutes}T")
-        .agg(
-            {
-                "Open": "first",
-                "High": "max",
-                "Low": "min",
-                "Close": "last",
-                "Volume": "sum",
-            }
-        )
-        .dropna()
-    )
 
     # Calculate indicators
     df_hist = calculate_indicators(
@@ -197,52 +160,34 @@ def fetch_historical_data(
 
 
 # %% [markdown]
-# ## 4. Fetch Candles Between Two Times
+# ## 4. Fetch Latest Candle
 
 
-# %%
-def fetch_candles(symbol, interval, start_time, end_time):
+def fetch_latest_candle(symbol, interval):
     """
-    Fetch candles from Binance API between two times.
+    Fetch the latest candle from Binance API.
     """
     base_url = "https://api.binance.com"
     endpoint = f"/api/v3/klines"
 
-    start_ts = int(start_time.timestamp() * 1000)
-    end_ts = int(end_time.timestamp() * 1000)
+    params = {
+        "symbol": symbol,
+        "interval": interval,
+        "limit": 1,
+    }
 
-    all_candles = []
-    while start_ts < end_ts:
-        params = {
-            "symbol": symbol,
-            "interval": interval,
-            "startTime": start_ts,
-            "endTime": end_ts,
-            "limit": 1000,
-        }
-
-        response = requests.get(f"{base_url}{endpoint}", params=params)
-        if response.status_code != 200:
-            logging.error(f"Error fetching candles: {response.text}")
-            time.sleep(60)  # Wait before retrying
-            continue
-
-        data = response.json()
-
-        if not data:
-            break
-
-        all_candles.extend(data)
-        if len(data) < 1000:
-            break
-
-        start_ts = data[-1][0] + 1  # Start from the next candle
-
-    if not all_candles:
+    response = requests.get(f"{base_url}{endpoint}", params=params)
+    if response.status_code != 200:
+        logging.error(f"Error fetching latest candle: {response.text}")
         return None
 
-    df_candles = pd.DataFrame(
-        all_candles,
+    data = response.json()
+    if not data:
+        return None
+
+    candle = data[0]
+    df_candle = pd.DataFrame(
+        [candle],
         columns=[
             "timestamp",
             "Open",
@@ -259,23 +204,20 @@ def fetch_candles(symbol, interval, start_time, end_time):
         ],
     )
 
-    df_candles["timestamp"] = pd.to_datetime(
-        df_candles["timestamp"], unit="ms", utc=True
-    )
-    df_candles.set_index("timestamp", inplace=True)
+    df_candle["timestamp"] = pd.to_datetime(df_candle["timestamp"], unit="ms", utc=True)
+    df_candle.set_index("timestamp", inplace=True)
 
-    df_candles[["Open", "High", "Low", "Close", "Volume"]] = df_candles[
+    df_candle[["Open", "High", "Low", "Close", "Volume"]] = df_candle[
         ["Open", "High", "Low", "Close", "Volume"]
     ].astype(float)
 
-    return df_candles
+    return df_candle
 
 
 # %% [markdown]
 # ## 5. Calculate Indicators: Nadaraya-Watson Envelope and EMAs
 
 
-# %%
 def calculate_indicators(
     df, ema_slow=EMA_SLOW, ema_fast=EMA_FAST, atr_length=ATR_LENGTH
 ):
@@ -288,11 +230,20 @@ def calculate_indicators(
     return df
 
 
-def calculate_nadaraya_watson(df, bandwidth=BANDWIDTH):
+def calculate_nadaraya_watson(df, bandwidth=BANDWIDTH, mulpitplier=NW_MULT):
     """
     Calculate Nadaraya-Watson envelopes.
     """
-    df = df.copy()
+    # Only calculate for new data
+    if "NW_Fitted" in df.columns:
+        last_index = df["NW_Fitted"].last_valid_index()
+        start_idx = df.index.get_loc(last_index) + 1 if last_index else 0
+    else:
+        start_idx = 0
+
+    df_new = df.iloc[start_idx:].copy()
+    if df_new.empty:
+        return df
 
     # Convert datetime index to numerical values
     X = np.arange(len(df)).reshape(-1, 1)
@@ -302,7 +253,6 @@ def calculate_nadaraya_watson(df, bandwidth=BANDWIDTH):
     model = KernelReg(endog=y, exog=X, var_type="c", bw=[bandwidth])
     fitted_values, _ = model.fit(X)
 
-    # Store the fitted values
     df["NW_Fitted"] = fitted_values
 
     # Calculate the residuals
@@ -312,8 +262,8 @@ def calculate_nadaraya_watson(df, bandwidth=BANDWIDTH):
     std_dev = np.std(residuals)
 
     # Create the envelopes
-    df["Upper_Envelope"] = df["NW_Fitted"] + 2 * std_dev
-    df["Lower_Envelope"] = df["NW_Fitted"] - 2 * std_dev
+    df["Upper_Envelope"] = df["NW_Fitted"] + NW_MULT * std_dev
+    df["Lower_Envelope"] = df["NW_Fitted"] - NW_MULT * std_dev
 
     return df
 
@@ -322,25 +272,33 @@ def ema_signal(df, backcandles=BACKCANDLES):
     """
     Generate EMA crossover signals.
     """
-    above = df["EMA_fast"] > df["EMA_slow"]
-    below = df["EMA_fast"] < df["EMA_slow"]
-
-    above_all = (
-        above.rolling(window=backcandles)
-        .apply(lambda x: x.all(), raw=True)
-        .fillna(0)
-        .astype(bool)
-    )
-    below_all = (
-        below.rolling(window=backcandles)
-        .apply(lambda x: x.all(), raw=True)
-        .fillna(0)
-        .astype(bool)
-    )
-
     df["EMASignal"] = 0
-    df.loc[above_all, "EMASignal"] = 2
-    df.loc[below_all, "EMASignal"] = 1
+    ema_fast = df["EMA_fast"]
+    ema_slow = df["EMA_slow"]
+
+    # Only calculate for new data
+    if "EMASignal" in df.columns:
+        last_index = df["EMASignal"].last_valid_index()
+        start_idx = df.index.get_loc(last_index) + 1 if last_index else 0
+    else:
+        start_idx = 0
+
+    for i in range(start_idx, len(df)):
+        if i < backcandles:
+            continue
+        above = (
+            ema_fast[i - backcandles + 1 : i + 1]
+            > ema_slow[i - backcandles + 1 : i + 1]
+        )
+        below = (
+            ema_fast[i - backcandles + 1 : i + 1]
+            < ema_slow[i - backcandles + 1 : i + 1]
+        )
+
+        if above.all():
+            df.at[df.index[i], "EMASignal"] = 2
+        elif below.all():
+            df.at[df.index[i], "EMASignal"] = 1
 
     return df
 
@@ -363,7 +321,6 @@ def total_signal(df):
 # ## 6. Trade Tracking
 
 
-# %%
 class Trade:
     def __init__(self, entry_time, entry_price, trade_type, sl, tp, position_size):
         self.EntryTime = entry_time
@@ -398,7 +355,6 @@ class Trade:
 # ## 7. Position Sizing and Risk Management
 
 
-# %%
 def calculate_position_size(entry_price, stop_loss_price):
     """
     Calculate the position size based on account balance and risk per trade.
@@ -413,7 +369,6 @@ def calculate_position_size(entry_price, stop_loss_price):
 # ## 8. Plotting the Strategy with Plotly Dash
 
 
-# %%
 def create_dash_app():
     """
     Create and configure the Dash app.
@@ -576,6 +531,18 @@ def create_dash_app():
                     )
                 )
 
+                # Trailing TP line
+                fig.add_trace(
+                    go.Scatter(
+                        x=[trade["EntryTime"], trade["ExitTime"]],
+                        y=[trade["InitialTP"], trade["CurrentTP"]],
+                        mode="lines",
+                        line=dict(color="rgba(0,255,0,0.5)", width=1, dash="dot"),
+                        name="Trailing TP",
+                        showlegend=False,
+                    )
+                )
+
                 # Exit point
                 exit_color = "green" if trade["PnL"] > 0 else "red"
                 fig.add_trace(
@@ -663,6 +630,7 @@ def create_dash_app():
                     html.P(f"Average Profit (Winners): {avg_profit_winners:.2f}"),
                     html.P(f"Average Loss (Losers): {avg_loss_losers:.2f}"),
                     html.P(f"Profit Factor: {profit_factor:.2f}"),
+                    html.P(f"Account Balance: {ACCOUNT_BALANCE:.2f} USD"),
                 ]
             )
         else:
@@ -676,28 +644,35 @@ def create_dash_app():
 
 
 # %% [markdown]
-# ## 9. Advanced Trailing Stop
+# ## 9. Advanced Trailing Stop and Take Profit
 
 
-# %%
-def update_trailing_stop(current_trade, current_price, latest_row):
+def update_trailing_levels(current_trade, current_price, latest_row):
     """
-    Update the trailing stop based on ATR.
+    Update the trailing stop and take profit based on TRAIL_PERCENT.
     """
-    atr = latest_row["ATR"]
     if current_trade.Type == "Long":
-        new_sl = max(current_trade.CurrentSL, current_price - SL_COEF * atr)
+        # Update trailing stop loss (increase SL)
+        new_sl = max(current_trade.CurrentSL, current_price * (1 - TRAIL_PERCENT))
         current_trade.CurrentSL = new_sl
+
+        # Update trailing take profit (increase TP)
+        new_tp = max(current_trade.CurrentTP, current_price * (1 + TRAIL_PERCENT))
+        current_trade.CurrentTP = new_tp
     else:
-        new_sl = min(current_trade.CurrentSL, current_price + SL_COEF * atr)
+        # Update trailing stop loss (decrease SL)
+        new_sl = min(current_trade.CurrentSL, current_price * (1 + TRAIL_PERCENT))
         current_trade.CurrentSL = new_sl
+
+        # Update trailing take profit (decrease TP)
+        new_tp = min(current_trade.CurrentTP, current_price * (1 - TRAIL_PERCENT))
+        current_trade.CurrentTP = new_tp
 
 
 # %% [markdown]
 # ## 10. Main Execution Loop
 
 
-# %%
 def main():
     global df, trades, current_trade, data_lock, ACCOUNT_BALANCE
     # Initialize DataFrame with historical data
@@ -726,7 +701,6 @@ def main():
 
     # Initialize current trade
     current_trade = None
-    last_known_time = df.index[-1]
 
     # Process historical data to simulate trades
     logging.info("Processing historical data to simulate trades...")
@@ -774,22 +748,22 @@ def main():
                         f"Historical Entry Short at {entry_price:.2f} on {idx.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
                     )
             else:
-                # Update Trailing SL
+                # Update Trailing SL and TP
                 current_price = row["Close"]
-                update_trailing_stop(current_trade, current_price, row)
+                update_trailing_levels(current_trade, current_price, row)
 
                 # Check for exit conditions
                 exit_price = None
                 if current_trade.Type == "Long":
                     if current_price <= current_trade.CurrentSL:
                         exit_price = current_trade.CurrentSL
-                    elif current_price >= current_trade.InitialTP:
-                        exit_price = current_trade.InitialTP
+                    elif current_price >= current_trade.CurrentTP:
+                        exit_price = current_trade.CurrentTP
                 else:
                     if current_price >= current_trade.CurrentSL:
                         exit_price = current_trade.CurrentSL
-                    elif current_price <= current_trade.InitialTP:
-                        exit_price = current_trade.InitialTP
+                    elif current_price <= current_trade.CurrentTP:
+                        exit_price = current_trade.CurrentTP
 
                 # Time-based exit
                 trade_duration = idx - current_trade.EntryTime
@@ -839,64 +813,26 @@ def main():
     # Start the live loop
     while True:
         try:
-            now = datetime.now(pytz.UTC)  # Make 'now' timezone-aware
-            next_agg_candle_time = last_known_time + timedelta(
-                minutes=AGG_INTERVAL_MINUTES
-            )
-            time_until_next_candle = (next_agg_candle_time - now).total_seconds()
-
-            if time_until_next_candle > 0:
-                # Sleep until the next aggregated candle time
-                sleep_duration = min(
-                    time_until_next_candle + 1, 60
-                )  # Avoid sleeping too long
-                logging.info(
-                    f"Sleeping for {sleep_duration:.2f} seconds until next candle."
-                )
-                time.sleep(sleep_duration)
-                continue
-
-            # Fetch 1-minute candles from last_known_time + 1 minute to next_agg_candle_time
-            start_time = last_known_time + timedelta(minutes=1)
-            end_time = next_agg_candle_time
-
-            df_new_1m = fetch_candles(
-                symbol=SYMBOL, interval="1m", start_time=start_time, end_time=end_time
-            )
-            if df_new_1m is None or df_new_1m.empty:
-                logging.info(
-                    f"No new candles fetched between {start_time} and {end_time}"
-                )
-                time.sleep(60)  # Wait before trying again
-                continue
-
-            # Aggregate df_new_1m into aggregated candle
-            df_new_agg = (
-                df_new_1m.resample(f"{AGG_INTERVAL_MINUTES}T")
-                .agg(
-                    {
-                        "Open": "first",
-                        "High": "max",
-                        "Low": "min",
-                        "Close": "last",
-                        "Volume": "sum",
-                    }
-                )
-                .dropna()
-            )
-
-            if df_new_agg.empty:
-                logging.info(
-                    f"No new aggregated candle formed between {start_time} and {end_time}"
-                )
+            # Fetch the latest candle
+            df_new = fetch_latest_candle(symbol=SYMBOL, interval=INTERVAL)
+            if df_new is None:
                 time.sleep(60)
                 continue
 
-            # Append the new aggregated candle to df
-            with data_lock:
-                df = pd.concat([df, df_new_agg])
+            latest_time = df_new.index[0]
 
-                # Recalculate indicators
+            with data_lock:
+                if latest_time in df.index:
+                    logging.info(
+                        f"No new candle. Latest candle time: {latest_time.astimezone(LOCAL_TIMEZONE)}"
+                    )
+                    time.sleep(60)
+                    continue  # No new candle
+
+                # Append new candle to DataFrame
+                df = pd.concat([df, df_new])
+
+                # Recalculate indicators only for new data
                 df = calculate_indicators(
                     df, ema_slow=EMA_SLOW, ema_fast=EMA_FAST, atr_length=ATR_LENGTH
                 )
@@ -906,12 +842,11 @@ def main():
 
                 # Get the latest row
                 latest_row = df.iloc[-1]
-                last_known_time = latest_row.name
 
             # Generate signals
             signal = latest_row["Total_Signal"]
             logging.info(
-                f"Signal at {last_known_time.astimezone(LOCAL_TIMEZONE)}: {signal}"
+                f"Signal at {latest_time.astimezone(LOCAL_TIMEZONE)}: {signal}"
             )
 
             # Trade Management
@@ -926,7 +861,7 @@ def main():
                         position_size = calculate_position_size(entry_price, sl)
 
                         current_trade = Trade(
-                            entry_time=last_known_time,
+                            entry_time=latest_time,
                             entry_price=entry_price,
                             trade_type="Long",
                             sl=sl,
@@ -934,7 +869,7 @@ def main():
                             position_size=position_size,
                         )
                         logging.info(
-                            f"Entered Long at {entry_price:.2f} with SL: {sl:.2f} and TP: {tp:.2f} on {last_known_time.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
+                            f"Entered Long at {entry_price:.2f} with SL: {sl:.2f} and TP: {tp:.2f} on {latest_time.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
                         )
 
                     elif signal == 1:  # Sell signal
@@ -946,7 +881,7 @@ def main():
                         position_size = calculate_position_size(entry_price, sl)
 
                         current_trade = Trade(
-                            entry_time=last_known_time,
+                            entry_time=latest_time,
                             entry_price=entry_price,
                             trade_type="Short",
                             sl=sl,
@@ -954,28 +889,28 @@ def main():
                             position_size=position_size,
                         )
                         logging.info(
-                            f"Entered Short at {entry_price:.2f} with SL: {sl:.2f} and TP: {tp:.2f} on {last_known_time.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
+                            f"Entered Short at {entry_price:.2f} with SL: {sl:.2f} and TP: {tp:.2f} on {latest_time.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
                         )
                 else:
-                    # Update Trailing SL
+                    # Update Trailing SL and TP
                     current_price = latest_row["Close"]
-                    update_trailing_stop(current_trade, current_price, latest_row)
+                    update_trailing_levels(current_trade, current_price, latest_row)
 
                     # Check for exit conditions
                     exit_price = None
                     if current_trade.Type == "Long":
                         if current_price <= current_trade.CurrentSL:
                             exit_price = current_trade.CurrentSL
-                        elif current_price >= current_trade.InitialTP:
-                            exit_price = current_trade.InitialTP
+                        elif current_price >= current_trade.CurrentTP:
+                            exit_price = current_trade.CurrentTP
                     else:
                         if current_price >= current_trade.CurrentSL:
                             exit_price = current_trade.CurrentSL
-                        elif current_price <= current_trade.InitialTP:
-                            exit_price = current_trade.InitialTP
+                        elif current_price <= current_trade.CurrentTP:
+                            exit_price = current_trade.CurrentTP
 
                     # Time-based exit
-                    trade_duration = last_known_time - current_trade.EntryTime
+                    trade_duration = latest_time - current_trade.EntryTime
                     if trade_duration >= MAX_TRADE_DURATION:
                         exit_price = current_price
                         logging.info(
@@ -983,7 +918,7 @@ def main():
                         )
 
                     if exit_price is not None:
-                        current_trade.ExitTime = last_known_time
+                        current_trade.ExitTime = latest_time
                         current_trade.ExitPrice = exit_price  # Ensure ExitPrice is set
                         if current_trade.Type == "Long":
                             current_trade.PnL = (
@@ -1002,9 +937,12 @@ def main():
                             [trades, pd.DataFrame([trade_dict])], ignore_index=True
                         )
                         logging.info(
-                            f"Exited {current_trade.Type} at {exit_price:.2f} on {last_known_time.astimezone(LOCAL_TIMEZONE)} with PnL: {current_trade.PnL:.2f}"
+                            f"Exited {current_trade.Type} at {exit_price:.2f} on {latest_time.astimezone(LOCAL_TIMEZONE)} with PnL: {current_trade.PnL:.2f}"
                         )
                         current_trade = None
+
+            # Sleep until the next candle
+            time.sleep(PLOT_UPDATE_INTERVAL)
 
         except KeyboardInterrupt:
             logging.info("Live trading stopped by user.")
@@ -1017,6 +955,7 @@ def main():
 # %% [markdown]
 # ## **End of Script**
 
-# %%
 if __name__ == "__main__":
     main()
+
+# %%

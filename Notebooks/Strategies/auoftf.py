@@ -9,7 +9,7 @@ import re
 import sys
 import threading
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import dash_bootstrap_components as dbc
 import numpy as np
@@ -30,7 +30,7 @@ from statsmodels.nonparametric.kernel_regression import KernelReg
 # %%
 # Configuration Parameters
 SYMBOL = "BTCUSDT"
-INTERVAL = "15m"  # Changed from '3m' to '10m'
+INTERVAL = "3m"  # Changed from '3m' to '10m'
 BANDWIDTH = 7  # Bandwidth for Nadaraya-Watson
 EMA_SLOW = 50
 EMA_FAST = 40
@@ -46,7 +46,7 @@ FETCH_INTERVAL = (
 HISTORICAL_DAYS = 10
 
 # Plotting Configuration
-PLOT_UPDATE_INTERVAL = 60  # seconds
+PLOT_UPDATE_INTERVAL = 30  # seconds
 
 # Dash Configuration
 DASH_APP_NAME = "Live Trading Dashboard"
@@ -109,7 +109,7 @@ def fetch_historical_data(
     endpoint = f"/api/v3/klines"
 
     # Calculate end_time as the last complete candle
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     # Calculate how many minutes have passed since the last candle start
     elapsed_minutes = now.minute % INTERVAL_MINUTES
     # Calculate the last complete candle start time

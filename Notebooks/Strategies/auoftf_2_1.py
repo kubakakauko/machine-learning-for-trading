@@ -5,7 +5,6 @@
 # %% [markdown]
 # ## 1. Imports
 
-import logging
 import re
 import sys
 import threading
@@ -31,7 +30,7 @@ from statsmodels.nonparametric.kernel_regression import KernelReg
 # Configuration Parameters
 SYMBOL = "BTCUSDT"
 INTERVAL = "1m"  # Fetch 1-minute candles
-AGG_INTERVAL_MINUTES = 3  # Desired timeframe to aggregate to
+AGG_INTERVAL_MINUTES = 2  # Desired timeframe to aggregate to
 BANDWIDTH = 7  # Bandwidth for Nadaraya-Watson
 EMA_SLOW = 50
 EMA_FAST = 40
@@ -43,12 +42,6 @@ SLIPPAGE = 0.0005
 TRAIL_PERCENT = 0.00618
 HISTORICAL_DAYS = 10
 
-# Account and Risk Management
-ACCOUNT_BALANCE = 10000  # Example starting balance in USD
-RISK_PER_TRADE = 0.01  # Risk 1% of account per trade
-
-MAX_TRADE_DURATION = timedelta(hours=4)  # Close trades after 4 hours
-
 # Dash Configuration
 PLOT_UPDATE_INTERVAL = 60  # seconds
 DASH_APP_NAME = "Live Trading Dashboard"
@@ -57,14 +50,6 @@ DASH_APP_NAME = "Live Trading Dashboard"
 LOCAL_TIMEZONE = pytz.timezone(
     "Europe/London"
 )  # Adjust to your local timezone if different
-
-# Configure logging
-logging.basicConfig(
-    filename="trading_log.log",
-    filemode="a",
-    format="%(asctime)s %(levelname)s:%(message)s",
-    level=logging.INFO,
-)
 
 # Global variables and lock for synchronization
 df = None
@@ -106,7 +91,7 @@ def fetch_historical_data(
     endpoint = f"/api/v3/klines"
 
     # Calculate end_time as the last complete aggregated candle
-    now = datetime.utcnow().replace(tzinfo=pytz.UTC)
+    now = datetime.utcnow()
     end_time = align_to_interval(now, agg_interval_minutes)
 
     # Start time is HISTORICAL_DAYS ago, aligned to aggregation interval
@@ -128,7 +113,7 @@ def fetch_historical_data(
 
         response = requests.get(f"{base_url}{endpoint}", params=params)
         if response.status_code != 200:
-            logging.error(f"Error fetching data: {response.text}")
+            print(f"Error fetching data: {response.text}")
             time.sleep(60)  # Wait before retrying
             continue
 
@@ -223,7 +208,7 @@ def fetch_candles(symbol, interval, start_time, end_time):
 
         response = requests.get(f"{base_url}{endpoint}", params=params)
         if response.status_code != 200:
-            logging.error(f"Error fetching candles: {response.text}")
+            print(f"Error fetching candles: {response.text}")
             time.sleep(60)  # Wait before retrying
             continue
 
@@ -365,7 +350,7 @@ def total_signal(df):
 
 # %%
 class Trade:
-    def __init__(self, entry_time, entry_price, trade_type, sl, tp, position_size):
+    def __init__(self, entry_time, entry_price, trade_type, sl, tp):
         self.EntryTime = entry_time
         self.EntryPrice = float(entry_price)
         self.Type = trade_type  # 'Long' or 'Short'
@@ -373,7 +358,6 @@ class Trade:
         self.InitialTP = float(tp)
         self.CurrentSL = float(sl)
         self.CurrentTP = float(tp)
-        self.PositionSize = position_size
         self.ExitTime = None
         self.ExitPrice = None
         self.PnL = None
@@ -387,7 +371,6 @@ class Trade:
             "InitialTP": self.InitialTP,
             "CurrentSL": self.CurrentSL,
             "CurrentTP": self.CurrentTP,
-            "PositionSize": self.PositionSize,
             "ExitTime": self.ExitTime,
             "ExitPrice": self.ExitPrice,
             "PnL": self.PnL,
@@ -395,22 +378,7 @@ class Trade:
 
 
 # %% [markdown]
-# ## 7. Position Sizing and Risk Management
-
-
-# %%
-def calculate_position_size(entry_price, stop_loss_price):
-    """
-    Calculate the position size based on account balance and risk per trade.
-    """
-    amount_at_risk = ACCOUNT_BALANCE * RISK_PER_TRADE
-    price_difference = abs(entry_price - stop_loss_price)
-    position_size = amount_at_risk / price_difference
-    return position_size
-
-
-# %% [markdown]
-# ## 8. Plotting the Strategy with Plotly Dash
+# ## 7. Plotting the Strategy with Plotly Dash
 
 
 # %%
@@ -564,7 +532,17 @@ def create_dash_app():
                     line=dict(color="rgba(255,0,0,0.5)", width=1, dash="dash"),
                 )
 
-                # Trailing SL line
+                # Trailing TP and SL lines
+                fig.add_trace(
+                    go.Scatter(
+                        x=[trade["EntryTime"], trade["ExitTime"]],
+                        y=[trade["InitialTP"], trade["CurrentTP"]],
+                        mode="lines",
+                        line=dict(color="rgba(0,255,0,0.5)", width=1, dash="dot"),
+                        name="Trailing TP",
+                        showlegend=False,
+                    )
+                )
                 fig.add_trace(
                     go.Scatter(
                         x=[trade["EntryTime"], trade["ExitTime"]],
@@ -676,30 +654,12 @@ def create_dash_app():
 
 
 # %% [markdown]
-# ## 9. Advanced Trailing Stop
-
-
-# %%
-def update_trailing_stop(current_trade, current_price, latest_row):
-    """
-    Update the trailing stop based on ATR.
-    """
-    atr = latest_row["ATR"]
-    if current_trade.Type == "Long":
-        new_sl = max(current_trade.CurrentSL, current_price - SL_COEF * atr)
-        current_trade.CurrentSL = new_sl
-    else:
-        new_sl = min(current_trade.CurrentSL, current_price + SL_COEF * atr)
-        current_trade.CurrentSL = new_sl
-
-
-# %% [markdown]
-# ## 10. Main Execution Loop
+# ## 8. Main Execution Loop
 
 
 # %%
 def main():
-    global df, trades, current_trade, data_lock, ACCOUNT_BALANCE
+    global df, trades, current_trade, data_lock
     # Initialize DataFrame with historical data
     df_hist = fetch_historical_data(symbol=SYMBOL)
     with data_lock:
@@ -713,14 +673,13 @@ def main():
                 "InitialTP",
                 "CurrentSL",
                 "CurrentTP",
-                "PositionSize",
                 "ExitTime",
                 "ExitPrice",
                 "PnL",
             ]
         )
 
-    logging.info(
+    print(
         f"Fetched {len(df)} candles from {df.index[0].astimezone(LOCAL_TIMEZONE)} to {df.index[-1].astimezone(LOCAL_TIMEZONE)}"
     )
 
@@ -729,7 +688,7 @@ def main():
     last_known_time = df.index[-1]
 
     # Process historical data to simulate trades
-    logging.info("Processing historical data to simulate trades...")
+    print("Processing historical data to simulate trades...")
     for idx, row in df.iterrows():
         signal = row["Total_Signal"]
 
@@ -741,7 +700,6 @@ def main():
                     tp_distance = sl_distance * TP_SL_RATIO
                     sl = entry_price - sl_distance
                     tp = entry_price + tp_distance
-                    position_size = calculate_position_size(entry_price, sl)
 
                     current_trade = Trade(
                         entry_time=idx,
@@ -749,10 +707,9 @@ def main():
                         trade_type="Long",
                         sl=sl,
                         tp=tp,
-                        position_size=position_size,
                     )
-                    logging.info(
-                        f"Historical Entry Long at {entry_price:.2f} on {idx.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
+                    print(
+                        f"Historical Entry Long at {entry_price:.2f} on {idx.astimezone(LOCAL_TIMEZONE)}"
                     )
                 elif signal == 1:  # Sell signal
                     entry_price = row["Close"] * (1 - SLIPPAGE)
@@ -760,7 +717,6 @@ def main():
                     tp_distance = sl_distance * TP_SL_RATIO
                     sl = entry_price + sl_distance
                     tp = entry_price - tp_distance
-                    position_size = calculate_position_size(entry_price, sl)
 
                     current_trade = Trade(
                         entry_time=idx,
@@ -768,64 +724,64 @@ def main():
                         trade_type="Short",
                         sl=sl,
                         tp=tp,
-                        position_size=position_size,
                     )
-                    logging.info(
-                        f"Historical Entry Short at {entry_price:.2f} on {idx.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
+                    print(
+                        f"Historical Entry Short at {entry_price:.2f} on {idx.astimezone(LOCAL_TIMEZONE)}"
                     )
             else:
-                # Update Trailing SL
+                # Update Trailing SL and TP
                 current_price = row["Close"]
-                update_trailing_stop(current_trade, current_price, row)
+                if current_trade.Type == "Long":
+                    new_sl = max(
+                        current_trade.CurrentSL, current_price * (1 - TRAIL_PERCENT)
+                    )
+                    new_tp = max(
+                        current_trade.CurrentTP, current_price * (1 + TRAIL_PERCENT)
+                    )
+                else:
+                    new_sl = min(
+                        current_trade.CurrentSL, current_price * (1 + TRAIL_PERCENT)
+                    )
+                    new_tp = min(
+                        current_trade.CurrentTP, current_price * (1 - TRAIL_PERCENT)
+                    )
+
+                current_trade.CurrentSL = new_sl
+                current_trade.CurrentTP = new_tp
 
                 # Check for exit conditions
                 exit_price = None
                 if current_trade.Type == "Long":
                     if current_price <= current_trade.CurrentSL:
                         exit_price = current_trade.CurrentSL
-                    elif current_price >= current_trade.InitialTP:
-                        exit_price = current_trade.InitialTP
+                    elif current_price >= current_trade.CurrentTP:
+                        exit_price = current_trade.CurrentTP
                 else:
                     if current_price >= current_trade.CurrentSL:
                         exit_price = current_trade.CurrentSL
-                    elif current_price <= current_trade.InitialTP:
-                        exit_price = current_trade.InitialTP
-
-                # Time-based exit
-                trade_duration = idx - current_trade.EntryTime
-                if trade_duration >= MAX_TRADE_DURATION:
-                    exit_price = current_price
-                    logging.info(
-                        f"Time-based exit for {current_trade.Type} trade at {exit_price:.2f}"
-                    )
+                    elif current_price <= current_trade.CurrentTP:
+                        exit_price = current_trade.CurrentTP
 
                 if exit_price is not None:
                     current_trade.ExitTime = idx
                     current_trade.ExitPrice = exit_price  # Ensure ExitPrice is set
                     if current_trade.Type == "Long":
-                        current_trade.PnL = (
-                            exit_price - current_trade.EntryPrice
-                        ) * current_trade.PositionSize
+                        current_trade.PnL = exit_price - current_trade.EntryPrice
                     else:
-                        current_trade.PnL = (
-                            current_trade.EntryPrice - exit_price
-                        ) * current_trade.PositionSize
-
-                    # Update account balance
-                    ACCOUNT_BALANCE += current_trade.PnL
+                        current_trade.PnL = current_trade.EntryPrice - exit_price
 
                     trade_dict = current_trade.to_dict()
                     trades = pd.concat(
                         [trades, pd.DataFrame([trade_dict])], ignore_index=True
                     )
-                    logging.info(
+                    print(
                         f"Historical Exit {current_trade.Type} at {exit_price:.2f} on {idx.astimezone(LOCAL_TIMEZONE)} with PnL: {current_trade.PnL:.2f}"
                     )
                     current_trade = None
 
     # Create Dash app
     app = create_dash_app()
-    logging.info("Initial historical trades processed.")
+    print("Initial historical trades processed.")
 
     # Start Dash app in a separate thread
     def run_dash():
@@ -834,12 +790,12 @@ def main():
     dash_thread = threading.Thread(target=run_dash)
     dash_thread.daemon = True  # Ensures the thread exits when main thread does
     dash_thread.start()
-    logging.info(f"Dash app running at http://127.0.0.1:8050/")
+    print(f"Dash app running at http://127.0.0.1:8050/")
 
     # Start the live loop
     while True:
         try:
-            now = datetime.now(pytz.UTC)  # Make 'now' timezone-aware
+            now = datetime.utcnow()
             next_agg_candle_time = last_known_time + timedelta(
                 minutes=AGG_INTERVAL_MINUTES
             )
@@ -847,13 +803,10 @@ def main():
 
             if time_until_next_candle > 0:
                 # Sleep until the next aggregated candle time
-                sleep_duration = min(
-                    time_until_next_candle + 1, 60
-                )  # Avoid sleeping too long
-                logging.info(
-                    f"Sleeping for {sleep_duration:.2f} seconds until next candle."
+                print(
+                    f"Sleeping for {time_until_next_candle:.2f} seconds until next candle."
                 )
-                time.sleep(sleep_duration)
+                time.sleep(time_until_next_candle + 1)  # Adding 1 second buffer
                 continue
 
             # Fetch 1-minute candles from last_known_time + 1 minute to next_agg_candle_time
@@ -864,9 +817,7 @@ def main():
                 symbol=SYMBOL, interval="1m", start_time=start_time, end_time=end_time
             )
             if df_new_1m is None or df_new_1m.empty:
-                logging.info(
-                    f"No new candles fetched between {start_time} and {end_time}"
-                )
+                print(f"No new candles fetched between {start_time} and {end_time}")
                 time.sleep(60)  # Wait before trying again
                 continue
 
@@ -886,7 +837,7 @@ def main():
             )
 
             if df_new_agg.empty:
-                logging.info(
+                print(
                     f"No new aggregated candle formed between {start_time} and {end_time}"
                 )
                 time.sleep(60)
@@ -910,9 +861,7 @@ def main():
 
             # Generate signals
             signal = latest_row["Total_Signal"]
-            logging.info(
-                f"Signal at {last_known_time.astimezone(LOCAL_TIMEZONE)}: {signal}"
-            )
+            print(f"Signal at {last_known_time.astimezone(LOCAL_TIMEZONE)}: {signal}")
 
             # Trade Management
             with data_lock:
@@ -923,7 +872,6 @@ def main():
                         tp_distance = sl_distance * TP_SL_RATIO
                         sl = entry_price - sl_distance
                         tp = entry_price + tp_distance
-                        position_size = calculate_position_size(entry_price, sl)
 
                         current_trade = Trade(
                             entry_time=last_known_time,
@@ -931,10 +879,9 @@ def main():
                             trade_type="Long",
                             sl=sl,
                             tp=tp,
-                            position_size=position_size,
                         )
-                        logging.info(
-                            f"Entered Long at {entry_price:.2f} with SL: {sl:.2f} and TP: {tp:.2f} on {last_known_time.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
+                        print(
+                            f"Entered Long at {entry_price:.2f} with SL: {sl:.2f} and TP: {tp:.2f} on {last_known_time.astimezone(LOCAL_TIMEZONE)}"
                         )
 
                     elif signal == 1:  # Sell signal
@@ -943,7 +890,6 @@ def main():
                         tp_distance = sl_distance * TP_SL_RATIO
                         sl = entry_price + sl_distance
                         tp = entry_price - tp_distance
-                        position_size = calculate_position_size(entry_price, sl)
 
                         current_trade = Trade(
                             entry_time=last_known_time,
@@ -951,66 +897,66 @@ def main():
                             trade_type="Short",
                             sl=sl,
                             tp=tp,
-                            position_size=position_size,
                         )
-                        logging.info(
-                            f"Entered Short at {entry_price:.2f} with SL: {sl:.2f} and TP: {tp:.2f} on {last_known_time.astimezone(LOCAL_TIMEZONE)} with position size {position_size:.6f}"
+                        print(
+                            f"Entered Short at {entry_price:.2f} with SL: {sl:.2f} and TP: {tp:.2f} on {last_known_time.astimezone(LOCAL_TIMEZONE)}"
                         )
                 else:
-                    # Update Trailing SL
+                    # Update Trailing SL and TP
                     current_price = latest_row["Close"]
-                    update_trailing_stop(current_trade, current_price, latest_row)
+                    if current_trade.Type == "Long":
+                        new_sl = max(
+                            current_trade.CurrentSL, current_price * (1 - TRAIL_PERCENT)
+                        )
+                        new_tp = max(
+                            current_trade.CurrentTP, current_price * (1 + TRAIL_PERCENT)
+                        )
+                    else:
+                        new_sl = min(
+                            current_trade.CurrentSL, current_price * (1 + TRAIL_PERCENT)
+                        )
+                        new_tp = min(
+                            current_trade.CurrentTP, current_price * (1 - TRAIL_PERCENT)
+                        )
+
+                    current_trade.CurrentSL = new_sl
+                    current_trade.CurrentTP = new_tp
 
                     # Check for exit conditions
                     exit_price = None
                     if current_trade.Type == "Long":
                         if current_price <= current_trade.CurrentSL:
                             exit_price = current_trade.CurrentSL
-                        elif current_price >= current_trade.InitialTP:
-                            exit_price = current_trade.InitialTP
+                        elif current_price >= current_trade.CurrentTP:
+                            exit_price = current_trade.CurrentTP
                     else:
                         if current_price >= current_trade.CurrentSL:
                             exit_price = current_trade.CurrentSL
-                        elif current_price <= current_trade.InitialTP:
-                            exit_price = current_trade.InitialTP
-
-                    # Time-based exit
-                    trade_duration = last_known_time - current_trade.EntryTime
-                    if trade_duration >= MAX_TRADE_DURATION:
-                        exit_price = current_price
-                        logging.info(
-                            f"Time-based exit for {current_trade.Type} trade at {exit_price:.2f}"
-                        )
+                        elif current_price <= current_trade.CurrentTP:
+                            exit_price = current_trade.CurrentTP
 
                     if exit_price is not None:
                         current_trade.ExitTime = last_known_time
                         current_trade.ExitPrice = exit_price  # Ensure ExitPrice is set
                         if current_trade.Type == "Long":
-                            current_trade.PnL = (
-                                exit_price - current_trade.EntryPrice
-                            ) * current_trade.PositionSize
+                            current_trade.PnL = exit_price - current_trade.EntryPrice
                         else:
-                            current_trade.PnL = (
-                                current_trade.EntryPrice - exit_price
-                            ) * current_trade.PositionSize
-
-                        # Update account balance
-                        ACCOUNT_BALANCE += current_trade.PnL
+                            current_trade.PnL = current_trade.EntryPrice - exit_price
 
                         trade_dict = current_trade.to_dict()
                         trades = pd.concat(
                             [trades, pd.DataFrame([trade_dict])], ignore_index=True
                         )
-                        logging.info(
+                        print(
                             f"Exited {current_trade.Type} at {exit_price:.2f} on {last_known_time.astimezone(LOCAL_TIMEZONE)} with PnL: {current_trade.PnL:.2f}"
                         )
                         current_trade = None
 
         except KeyboardInterrupt:
-            logging.info("Live trading stopped by user.")
+            print("Live trading stopped by user.")
             sys.exit()
         except Exception as e:
-            logging.error(f"An error occurred: {e}", exc_info=True)
+            print(f"An error occurred: {e}")
             time.sleep(60)  # Wait before retrying
 
 
@@ -1018,5 +964,6 @@ def main():
 # ## **End of Script**
 
 # %%
-if __name__ == "__main__":
-    main()
+main()
+
+# %%
