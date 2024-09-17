@@ -1,7 +1,5 @@
 import json
 import sys
-import threading
-import time
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -12,16 +10,14 @@ import requests
 import websocket
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import Qt, QThread, QTimer, pyqtSignal
-from PyQt5.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QLabel,
-                             QLineEdit, QMainWindow, QMessageBox, QPushButton,
-                             QVBoxLayout, QWidget)
+from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QHBoxLayout,
+                             QLabel, QMainWindow, QSpinBox, QVBoxLayout,
+                             QWidget)
 from statsmodels.nonparametric.kernel_regression import KernelReg
 
 # Configuration Parameters
 SYMBOL = "BTCUSDT"
-TIMEFRAME = "1m"  # Fetch 1-minute candles
-AGG_INTERVAL_MINUTES = 15  # Desired timeframe to aggregate to
-BANDWIDTH = 8  # Bandwidth for Nadaraya-Watson
+BANDWIDTH = 7  # Bandwidth for Nadaraya-Watson
 EMA_SLOW = 50
 EMA_FAST = 40
 ATR_LENGTH = 14
@@ -29,17 +25,13 @@ BACKCANDLES = 7
 SL_COEF = 1.5
 TP_SL_RATIO = 2.0
 SLIPPAGE = 0.0005
-NW_MULT = 1
+NW_MULT = 2
 TRAIL_PERCENT = 0.00618  # Trailing percentage for both SL and TP
-HISTORICAL_DAYS = 7  # Number of historical days to fetch
 
 # Account and Risk Management
-ACCOUNT_BALANCE = 10000  # Example starting balance in USD
-RISK_PER_TRADE = 0.01  # Risk 1% of account per trade
+ACCOUNT_BALANCE = 100  # Example starting balance in USD
+RISK_PER_TRADE = 0.001  # Risk 1% of account per trade
 MAX_TRADE_DURATION = timedelta(hours=6)  # Close trades after 6 hours
-
-# Timeframe in seconds
-TIMEFRAME_SECONDS = 60  # 1 minute
 
 
 # Trade class to manage individual trades
@@ -77,7 +69,7 @@ class Trade:
         }
 
 
-# WebSocket thread to receive live trade data
+# WebSocket thread to receive live data
 class WebSocketThread(QThread):
     message_received = pyqtSignal(dict)
 
@@ -85,43 +77,27 @@ class WebSocketThread(QThread):
         super().__init__()
         self.url = url
         self.ws = None
-        self.connected = False
-        self.stop_flag = threading.Event()
 
     def run(self):
-        while not self.stop_flag.is_set():
-            self.ws = websocket.WebSocketApp(
-                self.url,
-                on_message=self.on_message,
-                on_error=self.on_error,
-                on_close=self.on_close,
-                on_open=self.on_open,
-            )
-            self.ws.run_forever()
-            time.sleep(5)  # Wait before reconnecting
-
-    def on_open(self, ws):
-        self.connected = True
-        print("WebSocket connection opened")
+        self.ws = websocket.WebSocketApp(
+            self.url,
+            on_message=self.on_message,
+            on_error=self.on_error,
+            on_close=self.on_close,
+        )
+        self.ws.run_forever()
 
     def on_message(self, ws, message):
-        trade = json.loads(message)
-        self.message_received.emit(trade)
+        data = json.loads(message)
+        self.message_received.emit(data)
 
     def on_error(self, ws, error):
         print(f"WebSocket error: {error}")
 
     def on_close(self, ws, close_status_code, close_msg):
-        self.connected = False
-        if not self.stop_flag.is_set():
-            print(
-                "WebSocket connection closed unexpectedly, attempting to reconnect..."
-            )
-        else:
-            print("WebSocket connection closed")
+        print("WebSocket connection closed")
 
     def stop(self):
-        self.stop_flag.set()
         if self.ws:
             self.ws.close()
 
@@ -176,10 +152,9 @@ class BTCLiveChart(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Live BTC/USDT Chart")
-        self.resize(1400, 800)
+        self.resize(1200, 800)
 
         # Initialize account balance and trade variables
-        self.initial_balance = ACCOUNT_BALANCE
         self.account_balance = ACCOUNT_BALANCE
         self.trades = []
         self.current_trade = None
@@ -190,6 +165,10 @@ class BTCLiveChart(QMainWindow):
 
         # Initialize settings
         self.enter_on_signal = False  # Toggle for entering trades before candle close
+
+        # Default timeframe and historical days
+        self.TIMEFRAME = "1m"
+        self.HISTORICAL_DAYS = 2
 
         # Set up the UI components
         self.setup_ui()
@@ -209,12 +188,6 @@ class BTCLiveChart(QMainWindow):
         # Keep track of plotted trade markers and levels
         self.trade_markers = []
         self.level_lines = []
-
-        # For keeping track of chart zoom/pan
-        self.initial_view_set = False
-
-        # Initialize performance metrics
-        self.performance_metrics = {}
 
     def setup_ui(self):
         """Set up the user interface components."""
@@ -264,116 +237,105 @@ class BTCLiveChart(QMainWindow):
         self.graph_widget.getAxis("bottom").setLabel("Time")
         self.graph_widget.getAxis("bottom").tickStrings = self.tickStrings
 
-        # Add controls
+        # Add controls for timeframe selection and historical days
         controls_layout = QHBoxLayout()
+        self.timeframe_combobox = QComboBox()
+        self.timeframe_combobox.addItems(["1m", "5m", "15m", "30m", "1h", "4h", "1d"])
+        self.timeframe_combobox.setCurrentText(self.TIMEFRAME)  # default value
+        self.timeframe_combobox.currentTextChanged.connect(self.on_timeframe_changed)
+        controls_layout.addWidget(QLabel("Timeframe:"))
+        controls_layout.addWidget(self.timeframe_combobox)
+
+        self.historical_days_spinbox = QSpinBox()
+        self.historical_days_spinbox.setRange(1, 30)
+        self.historical_days_spinbox.setValue(self.HISTORICAL_DAYS)  # default value
+        self.historical_days_spinbox.valueChanged.connect(
+            self.on_historical_days_changed
+        )
+        controls_layout.addWidget(QLabel("Historical Days:"))
+        controls_layout.addWidget(self.historical_days_spinbox)
 
         self.enter_on_signal_checkbox = QCheckBox("Enter Trades Before Candle Close")
         self.enter_on_signal_checkbox.stateChanged.connect(self.toggle_enter_on_signal)
         controls_layout.addWidget(self.enter_on_signal_checkbox)
-
-        # Button to export trade log
-        self.export_button = QPushButton("Export Trade Log")
-        self.export_button.clicked.connect(self.export_trade_log)
-        controls_layout.addWidget(self.export_button)
-
-        # Input for historical days
-        self.historical_days_input = QLineEdit(str(HISTORICAL_DAYS))
-        self.historical_days_input.setFixedWidth(50)
-        controls_layout.addWidget(QLabel("Historical Days:"))
-        controls_layout.addWidget(self.historical_days_input)
-
-        # Button to reload data
-        self.reload_button = QPushButton("Reload Data")
-        self.reload_button.clicked.connect(self.reload_data)
-        controls_layout.addWidget(self.reload_button)
-
         layout.addLayout(controls_layout)
 
-        # Add performance metrics display
-        self.metrics_label = QLabel()
-        layout.addWidget(self.metrics_label)
+        # Add label to display candle information
+        self.candle_info_label = QLabel()
+        layout.addWidget(self.candle_info_label)
 
     def toggle_enter_on_signal(self, state):
         self.enter_on_signal = state == Qt.Checked
-        # Reprocess historical trades when toggled
-        self.process_historical_trades()
 
     def tickStrings(self, values, scale, spacing):
-        return [
-            datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M") for value in values
-        ]
+        return [datetime.fromtimestamp(value).strftime("%H:%M:%S") for value in values]
+
+    def on_timeframe_changed(self, timeframe):
+        self.TIMEFRAME = timeframe
+        self.reset_data_and_fetch_new()
+
+    def on_historical_days_changed(self, days):
+        self.HISTORICAL_DAYS = days
+        self.reset_data_and_fetch_new()
+
+    def reset_data_and_fetch_new(self):
+        # Stop the websocket thread
+        self.ws_thread.stop()
+        self.ws_thread.wait()
+        # Reset data
+        self.data = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+        self.current_candle = None
+        # Fetch new historical data
+        self.fetch_historical_data()
+        # Restart websocket
+        self.setup_websocket()
+
+    def timeframe_to_minutes(self, timeframe):
+        if timeframe.endswith("m"):
+            return int(timeframe[:-1])
+        elif timeframe.endswith("h"):
+            return int(timeframe[:-1]) * 60
+        elif timeframe.endswith("d"):
+            return int(timeframe[:-1]) * 60 * 24
+        else:
+            return 1  # default to 1 minute
+
+    def timeframe_to_seconds(self, timeframe):
+        return self.timeframe_to_minutes(timeframe) * 60
+
+    def calculate_candles_limit(self):
+        timeframe_minutes = self.timeframe_to_minutes(self.TIMEFRAME)
+        candles_per_day = 24 * 60 / timeframe_minutes
+        limit = int(candles_per_day * self.HISTORICAL_DAYS)
+        # Binance API limit is 1000 candles per request
+        if limit > 1000:
+            limit = 1000
+        return limit
 
     def fetch_historical_data(self):
         """Fetch historical data from Binance and initialize the data DataFrame."""
-        limit_per_request = 1000
-        total_days = int(self.historical_days_input.text())
-        total_minutes = total_days * 24 * 60
-        num_requests = (
-            total_minutes // int(TIMEFRAME_SECONDS / 60) + limit_per_request - 1
-        ) // limit_per_request
+        limit = self.calculate_candles_limit()
+        url = f"https://api.binance.com/api/v3/klines?symbol={SYMBOL}&interval={self.TIMEFRAME}&limit={limit}"
+        response = requests.get(url)
+        klines = response.json()
 
-        end_time = int(datetime.utcnow().timestamp() * 1000)
         data_list = []
-
-        for i in range(num_requests):
-            params = {
-                "symbol": SYMBOL,
-                "interval": TIMEFRAME,
-                "limit": limit_per_request,
-                "endTime": end_time,
-            }
-            try:
-                response = requests.get(
-                    "https://api.binance.com/api/v3/klines", params=params
-                )
-                klines = response.json()
-                if not klines:
-                    break
-                for kline in klines:
-                    timestamp = int(int(kline[0]) / 1000)
-                    open_price = float(kline[1])
-                    high_price = float(kline[2])
-                    low_price = float(kline[3])
-                    close_price = float(kline[4])
-                    volume = float(kline[5])
-                    data_list.append(
-                        [
-                            timestamp,
-                            open_price,
-                            high_price,
-                            low_price,
-                            close_price,
-                            volume,
-                        ]
-                    )
-                end_time = klines[0][0] - 1  # Prepare for next batch
-            except Exception as e:
-                print(f"Error fetching historical data: {e}")
-                break
-
-        data_list.reverse()  # Oldest first
+        for kline in klines:
+            timestamp = int(int(kline[0]) / 1000)
+            open_price = float(kline[1])
+            high_price = float(kline[2])
+            low_price = float(kline[3])
+            close_price = float(kline[4])
+            volume = float(kline[5])
+            data_list.append(
+                [timestamp, open_price, high_price, low_price, close_price, volume]
+            )
 
         self.data = pd.DataFrame(
             data_list, columns=["timestamp", "Open", "High", "Low", "Close", "Volume"]
         )
         self.data["timestamp"] = pd.to_datetime(self.data["timestamp"], unit="s")
         self.data.set_index("timestamp", inplace=True)
-
-        # Resample data to AGG_INTERVAL_MINUTES if necessary
-        if AGG_INTERVAL_MINUTES > 1:
-            self.data = (
-                self.data.resample(f"{AGG_INTERVAL_MINUTES}min")
-                .agg(
-                    {
-                        "Open": "first",
-                        "High": "max",
-                        "Low": "min",
-                        "Close": "last",
-                        "Volume": "sum",
-                    }
-                )
-                .dropna()
-            )
 
         # Calculate indicators and generate initial signals
         self.calculate_indicators()
@@ -382,19 +344,8 @@ class BTCLiveChart(QMainWindow):
         # Process historical data to generate trades
         self.process_historical_trades()
 
-    def reload_data(self):
-        """Reload data based on new historical days."""
-        self.data = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
-        self.trades = []
-        self.current_trade = None
-        self.trade_counter = 0
-        self.initial_view_set = False
-        self.fetch_historical_data()
-
     def process_historical_trades(self):
         """Process historical data to generate trades."""
-        self.trades = []
-        self.current_trade = None
         for idx in range(len(self.data)):
             latest_row = self.data.iloc[idx]
             timestamp = self.data.index[idx]
@@ -403,79 +354,61 @@ class BTCLiveChart(QMainWindow):
     def setup_websocket(self):
         """Set up the WebSocket connection to receive live data."""
         self.ws_thread = WebSocketThread(
-            f"wss://stream.binance.com:9443/ws/{SYMBOL.lower()}@trade"
+            f"wss://stream.binance.com:9443/ws/{SYMBOL.lower()}@kline_{self.TIMEFRAME}"
         )
         self.ws_thread.message_received.connect(self.process_websocket_message)
         self.ws_thread.start()
 
-    def process_websocket_message(self, trade):
-        """Process incoming trade data from the WebSocket."""
-        timestamp = trade["E"] / 1000  # Event time in seconds
-        price = float(trade["p"])
-        volume = float(trade["q"])
+    def process_websocket_message(self, message):
+        """Process incoming kline data from the WebSocket."""
+        data = message["k"]
+        is_candle_closed = data["x"]
+        timestamp = int(data["t"] / 1000)  # Kline start time
+        open_price = float(data["o"])
+        high_price = float(data["h"])
+        low_price = float(data["l"])
+        close_price = float(data["c"])
+        volume = float(data["v"])
 
-        # Align timestamp to AGG_INTERVAL_MINUTES
-        candle_timestamp = int(timestamp // (AGG_INTERVAL_MINUTES * 60)) * (
-            AGG_INTERVAL_MINUTES * 60
-        )
+        candle_data = {
+            "Open": open_price,
+            "High": high_price,
+            "Low": low_price,
+            "Close": close_price,
+            "Volume": volume,
+        }
+        candle_index = pd.to_datetime(timestamp, unit="s")
 
-        # Check if we need to start a new candle
-        if (
-            self.current_candle is None
-            or candle_timestamp
-            >= self.current_candle["timestamp"] + AGG_INTERVAL_MINUTES * 60
-        ):
-            if self.current_candle is not None:
-                # Append the current candle to the data
-                new_row = pd.DataFrame(
-                    {
-                        "Open": [self.current_candle["open"]],
-                        "High": [self.current_candle["high"]],
-                        "Low": [self.current_candle["low"]],
-                        "Close": [self.current_candle["close"]],
-                        "Volume": [self.current_candle["volume"]],
-                    },
-                    index=[pd.to_datetime(self.current_candle["timestamp"], unit="s")],
-                )
-                new_row.index.name = "timestamp"
+        if is_candle_closed:
+            # Check if this timestamp is already in data
+            if candle_index in self.data.index:
+                # Update the existing row
+                self.data.loc[candle_index] = candle_data
+            else:
+                # Append the candle to the data
+                new_row = pd.DataFrame(candle_data, index=[candle_index])
                 self.data = pd.concat([self.data, new_row])
-                # After updating data, recalculate indicators and manage trades
-                self.calculate_indicators()
-                self.generate_signals()
-                latest_row = self.data.iloc[-1]
-                timestamp_dt = self.data.index[-1]
-                self.update_trades(latest_row, timestamp_dt)
-                self.calculate_performance_metrics()
 
-            # Start a new candle
-            self.current_candle = {
-                "timestamp": candle_timestamp,
-                "open": price,
-                "high": price,
-                "low": price,
-                "close": price,
-                "volume": volume,
-            }
+            # Recalculate indicators and manage trades
+            self.calculate_indicators()
+            self.generate_signals()
+            latest_row = self.data.loc[candle_index]
+            self.update_trades(latest_row, candle_index)
         else:
-            # Update the current candle
-            self.current_candle["close"] = price
-            self.current_candle["high"] = max(self.current_candle["high"], price)
-            self.current_candle["low"] = min(self.current_candle["low"], price)
-            self.current_candle["volume"] += volume
-
+            # Update current candle
+            self.current_candle = candle_data
+            self.current_candle["timestamp"] = candle_index
             # Update trades with the latest price
             if self.current_trade or self.enter_on_signal:
                 latest_row = pd.Series(
                     {
-                        "Close": price,
+                        "Close": close_price,
                         "ATR": (
                             self.data["ATR"].iloc[-1] if not self.data.empty else np.nan
                         ),
                     }
                 )
-                timestamp_dt = pd.to_datetime(timestamp, unit="s")
-                self.update_trades(latest_row, timestamp_dt, live_update=True)
-                self.calculate_performance_metrics()
+                self.update_trades(latest_row, candle_index, live_update=True)
 
     def calculate_indicators(self):
         """Calculate technical indicators: EMA, ATR, and Nadaraya-Watson envelopes."""
@@ -692,26 +625,27 @@ class BTCLiveChart(QMainWindow):
     def update_chart(self):
         """Update the chart with the latest data, indicators, and trades."""
         if self.data is not None and not self.data.empty:
+            # Save current view range
+            x_range, y_range = self.graph_widget.viewRange()
+
             # Prepare data for plotting
             df = self.data.copy()
             if self.current_candle is not None:
                 # Include the current candle
                 current_candle_df = pd.DataFrame(
-                    {
-                        "Open": [self.current_candle["open"]],
-                        "High": [self.current_candle["high"]],
-                        "Low": [self.current_candle["low"]],
-                        "Close": [self.current_candle["close"]],
-                        "Volume": [self.current_candle["volume"]],
-                    },
-                    index=[pd.to_datetime(self.current_candle["timestamp"], unit="s")],
+                    [self.current_candle],
+                    index=[self.current_candle["timestamp"]],
                 )
-                current_candle_df.index.name = "timestamp"
+                # Remove 'timestamp' column to avoid duplication
+                current_candle_df.drop(columns=["timestamp"], inplace=True)
                 df = pd.concat([df, current_candle_df])
+
             df.reset_index(inplace=True)
-            df["timestamp"] = (
-                df["timestamp"].astype(np.int64) // 10**9
-            )  # Convert to UNIX timestamp in seconds
+            # Remove duplicate 'timestamp' column if it exists
+            if "timestamp" in df.columns:
+                df = df.loc[:, ~df.columns.duplicated()]
+            df.rename(columns={"index": "timestamp"}, inplace=True)
+            df["timestamp"] = df["timestamp"].astype(np.int64) // 10**9
 
             # Update candlestick data
             candlestick_data = df[
@@ -731,20 +665,9 @@ class BTCLiveChart(QMainWindow):
             # Plot trade entries and exits
             self.plot_trades()
 
-            # Adjust the view to show the latest data only once
-            if not self.initial_view_set:
-                if len(df) > 100:
-                    self.graph_widget.setXRange(
-                        df["timestamp"].iloc[-100], df["timestamp"].iloc[-1]
-                    )
-                else:
-                    self.graph_widget.setXRange(
-                        df["timestamp"].iloc[0], df["timestamp"].iloc[-1]
-                    )
-                self.initial_view_set = True
-
-            # Update performance metrics display
-            self.update_performance_metrics_display()
+            # Restore view range
+            self.graph_widget.setXRange(*x_range, padding=0)
+            self.graph_widget.setYRange(*y_range, padding=0)
 
     def plot_trades(self):
         """Plot trade entry and exit points on the chart."""
@@ -840,79 +763,40 @@ class BTCLiveChart(QMainWindow):
             self.level_lines.extend([sl_line, tp_line])
 
     def mouseMoved(self, evt):
-        """Update crosshair position."""
+        """Update crosshair position and display candle information."""
         pos = evt[0]
         if self.graph_widget.sceneBoundingRect().contains(pos):
             mousePoint = self.graph_widget.plotItem.vb.mapSceneToView(pos)
-            self.vLine.setPos(mousePoint.x())
-            self.hLine.setPos(mousePoint.y())
+            x = mousePoint.x()
+            y = mousePoint.y()
+            self.vLine.setPos(x)
+            self.hLine.setPos(y)
+
+            # Find the nearest timestamp in data
+            timestamp = int(x)
+            df = self.data.copy()
+            if self.current_candle is not None:
+                current_candle_df = pd.DataFrame(
+                    [self.current_candle],
+                    index=[self.current_candle["timestamp"]],
+                )
+                df = pd.concat([df, current_candle_df])
+
+            df.reset_index(inplace=True)
+            df["timestamp"] = df["timestamp"].astype(np.int64) // 10**9
+
+            # Find the closest timestamp
+            if not df.empty:
+                idx = (df["timestamp"] - timestamp).abs().idxmin()
+                candle = df.iloc[idx]
+                candle_info = f"Time: {datetime.fromtimestamp(candle['timestamp'])} | O:{candle['Open']:.2f} H:{candle['High']:.2f} L:{candle['Low']:.2f} C:{candle['Close']:.2f}"
+                self.candle_info_label.setText(candle_info)
 
     def closeEvent(self, event):
         """Handle the window close event."""
         self.ws_thread.stop()
         self.ws_thread.wait()
         event.accept()
-
-    def export_trade_log(self):
-        """Export trade log to CSV."""
-        if not self.trades:
-            QMessageBox.information(self, "No Trades", "There are no trades to export.")
-            return
-        df = pd.DataFrame([trade.to_dict() for trade in self.trades])
-        df.to_csv("trade_log.csv", index=False)
-        QMessageBox.information(
-            self, "Export Successful", "Trade log exported to trade_log.csv"
-        )
-
-    def calculate_performance_metrics(self):
-        """Calculate performance metrics."""
-        if not self.trades:
-            return
-        df = pd.DataFrame([trade.to_dict() for trade in self.trades])
-        df["CumPnL"] = df["PnL"].cumsum()
-        total_return = df["PnL"].sum()
-        returns = df["PnL"]
-
-        # Sharpe Ratio
-        if returns.std() != 0:
-            sharpe_ratio = (returns.mean() / returns.std()) * np.sqrt(len(returns))
-        else:
-            sharpe_ratio = 0.0
-
-        # Maximum Drawdown
-        cum_returns = df["CumPnL"]
-        drawdown = cum_returns - cum_returns.cummax()
-        max_drawdown = drawdown.min()
-
-        # Win Rate
-        wins = df["PnL"] > 0
-        win_rate = wins.mean()
-
-        # Profit Factor
-        gross_profit = df.loc[df["PnL"] > 0, "PnL"].sum()
-        gross_loss = -df.loc[df["PnL"] < 0, "PnL"].sum()
-        profit_factor = gross_profit / gross_loss if gross_loss != 0 else np.nan
-
-        self.performance_metrics = {
-            "Total Return": total_return,
-            "Sharpe Ratio": sharpe_ratio,
-            "Max Drawdown": max_drawdown,
-            "Win Rate": win_rate,
-            "Profit Factor": profit_factor,
-        }
-
-    def update_performance_metrics_display(self):
-        """Update the performance metrics display."""
-        if not self.performance_metrics:
-            return
-        metrics_text = f"""
-        Total Return: {self.performance_metrics['Total Return']:.2f}
-        Sharpe Ratio: {self.performance_metrics['Sharpe Ratio']:.2f}
-        Max Drawdown: {self.performance_metrics['Max Drawdown']:.2f}
-        Win Rate: {self.performance_metrics['Win Rate'] * 100:.2f}%
-        Profit Factor: {self.performance_metrics['Profit Factor']:.2f}
-        """
-        self.metrics_label.setText(metrics_text)
 
 
 if __name__ == "__main__":

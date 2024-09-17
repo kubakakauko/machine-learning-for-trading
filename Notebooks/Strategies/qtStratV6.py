@@ -17,7 +17,7 @@ from statsmodels.nonparametric.kernel_regression import KernelReg
 # Configuration Parameters
 SYMBOL = "BTCUSDT"
 TIMEFRAME = "1m"  # Fetch 1-minute candles
-AGG_INTERVAL_MINUTES = 10  # Desired timeframe to aggregate to
+AGG_INTERVAL_MINUTES = 15  # Desired timeframe to aggregate to
 BANDWIDTH = 7  # Bandwidth for Nadaraya-Watson
 EMA_SLOW = 50
 EMA_FAST = 40
