@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import pyqtgraph as pg
 import requests
-# import pandas_ta as ta
 import talib as ta
 import websocket
 from PyQt5 import QtCore, QtGui
