@@ -8,64 +8,16 @@ import pyqtgraph as pg
 import requests
 import talib as ta
 import websocket
+from numba import njit  # Added for optimization
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import Qt, QThread, QTimer, pyqtSignal
 from PyQt5.QtWidgets import (QApplication, QCheckBox, QComboBox, QHBoxLayout,
                              QLabel, QMainWindow, QSpinBox, QVBoxLayout,
                              QWidget)
-from statsmodels.nonparametric.kernel_regression import KernelReg
-
-"""
-Strategy Overview:
-------------------
-This algorithmic trading strategy is based on technical indicators, specifically EMAs (Exponential Moving Averages), ATR (Average True Range), and Nadaraya-Watson kernel regression (for price smoothing and prediction). The strategy aims to trade the BTC/USDT pair based on crossovers between fast and slow EMAs, along with confirmation from price deviations beyond the Nadaraya-Watson envelopes. It also incorporates trailing stop-losses and take-profits to lock in profits while minimizing losses.
-
-1. **Entry Signals:**
-   - **EMA Crossovers**: The strategy looks for a crossover between a fast (40-period) and slow (50-period) EMA to generate signals:
-     - **Long Entry (Buy)**: A long signal is triggered when the fast EMA crosses above the slow EMA, and the price dips below the lower Nadaraya-Watson envelope (indicating an oversold condition).
-     - **Short Entry (Sell)**: A short signal is triggered when the fast EMA crosses below the slow EMA, and the price exceeds the upper Nadaraya-Watson envelope (indicating an overbought condition).
-
-2. **Stop Loss Calculation:**
-   - The stop-loss (SL) is based on the volatility of the market, measured by the ATR (14-period). The `SL_COEF` defines how far the stop-loss is placed from the entry price. Specifically:
-     - For long trades, the stop-loss is set at `entry_price - SL_COEF * ATR`.
-     - For short trades, the stop-loss is set at `entry_price + SL_COEF * ATR`.
-   - This ensures the stop-loss is dynamic and adjusts to the current market volatility.
-
-3. **Take Profit Calculation:**
-   - The take-profit (TP) is set as a multiple of the stop-loss distance. The ratio is determined by `TP_SL_RATIO`:
-     - TP = SL distance * TP_SL_RATIO (in this case, 2x the SL distance).
-   - This ensures the take-profit target is proportional to the risk being taken on the trade, aiming for a 2:1 reward-to-risk ratio.
-
-4. **Trailing Stop Loss (TRAIL_PERCENT):**
-   - After entering a trade, a trailing stop is applied to protect profits as the price moves in the favorable direction. The trailing stop moves as follows:
-     - For long trades, the stop-loss is adjusted upwards when the price rises by 0.12% (`TRAIL_PERCENT = 0.0012`).
-     - For short trades, the stop-loss is adjusted downwards when the price drops by 0.12%.
-   - This ensures that the stop-loss moves dynamically with the market, locking in profits while limiting losses.
-
-5. **Slippage Handling (SLIPPAGE):**
-   - A slippage factor (`SLIPPAGE = 0.0005`, or 0.05%) is incorporated to account for the price deviation during trade execution. This slippage is added to the entry price for long trades and subtracted for short trades. It helps simulate real-world trading conditions where the execution price can slightly differ from the intended price.
-
-6. **Risk Management (RISK_PER_TRADE):**
-   - The strategy risks a fixed percentage of the account balance per trade (`RISK_PER_TRADE = 0.001`, or 0.1%). This is the maximum capital you are willing to lose on any single trade.
-   - **Position Size Calculation**: The position size is calculated based on the distance between the entry price and stop-loss, ensuring that if the stop-loss is hit, the total loss will not exceed the defined risk (0.1% of the account balance). The formula `position_size = amount_at_risk / price_difference` adjusts the size of the trade based on volatility (measured by the ATR) and the stop-loss distance.
-7. **Trade Duration Limit:**
-   - A maximum trade duration is enforced (`MAX_TRADE_DURATION = 6 hours`), after which the trade is closed automatically, regardless of the price movement. This prevents holding positions too long in volatile markets where the initial strategy logic may no longer apply.
-8. **Impact of Indicators and Variables:**
-   - **ATR (Volatility)**: Higher ATR values increase the stop-loss distance, meaning the strategy tolerates more price movement before exiting the trade. Lower ATR values result in tighter stop-losses.
-   - **EMA Fast/Slow**: The periods of the EMAs control the sensitivity of the trend detection. Shorter EMAs react faster to price changes but can generate more false signals, while longer EMAs are slower but more reliable.
-   - **TRAIL_PERCENT**: This variable directly impacts how closely the trailing stop follows the price. A smaller value will result in a tighter stop, locking in profits sooner but potentially stopping out prematurely. A larger value will give the trade more room but may allow profits to decrease before the stop is triggered.
-   - **SL_COEF and TP_SL_RATIO**: These determine the aggressiveness of the strategy in terms of stop-loss and take-profit levels. A higher `SL_COEF` results in a larger stop-loss, giving the trade more room, while a higher `TP_SL_RATIO` aims for larger take-profit targets, enhancing the risk-to-reward ratio.
-   - **RISK_PER_TRADE**: Defines the fixed percentage of the account balance to be risked per trade. This ensures that the overall account remains protected by limiting potential losses to a small fraction of the balance.
-"""
-
-# TODO:
-# 1) Add logging of the individual indicators and singnals for each trade to verify corectness. (This is because on lower timefarmes there are some inconsistencies with how signals are generated).
-# 2)
-
 
 # Configuration Parameters
 SYMBOL = "BTCUSDT"
-BANDWIDTH = 7  # Bandwidth for Nadaraya-Watson
+BANDWIDTH = 7  # Bandwidth for Nadaraya-Watson (used for both kernel and rolling window)
 EMA_SLOW = 50
 EMA_FAST = 40
 ATR_LENGTH = 14  # Period for calculating the Average True Range (ATR) indicator (measuring volatility)
@@ -73,7 +25,7 @@ BACKCANDLES = 7  # Number of previous candles to consider for trading signals
 SL_COEF = 1.5  # Stop Loss coefficient: distance from entry price to stop-loss is 1.5 times the ATR
 TP_SL_RATIO = 2.0  # Take Profit to Stop Loss ratio: TP is 2x the SL distance
 SLIPPAGE = 0.0005  # Assumed slippage rate for entry/exit prices (0.05%)
-NW_MULT = 1  # Multiplier for Nadaraya-Watson envelope distance (standard deviation from the fitted price)
+NW_MULT = 2  # Multiplier for Nadaraya-Watson envelope distance (standard deviation from the fitted price)
 
 TRAIL_PERCENT = 0.0012  # Trailing percentage for both SL and TP (0.12%)
 # TRAIL_PERCENT defines the percentage price movement required to trigger the adjustment of the trailing stop.
@@ -202,6 +154,115 @@ class CandlestickItem(pg.GraphicsObject):
     def boundingRect(self):
         # Ensure boundingRect returns a QRectF
         return QtCore.QRectF(self.picture.boundingRect())
+
+
+# Numba-Optimized Functions
+@njit(parallel=True)
+def gaussian_kernel(x, bandwidth):
+    """Compute Gaussian kernel weights."""
+    return np.exp(-0.5 * (x / bandwidth) ** 2)
+
+
+@njit(parallel=True)
+def nadaraya_watson(y, bandwidth):
+    """
+    Compute Nadaraya-Watson fitted values using a Gaussian kernel.
+
+    Parameters:
+    - y: 1D array of target values.
+    - bandwidth: Integer specifying the window size.
+
+    Returns:
+    - fitted: 1D array of fitted values.
+    """
+    n = len(y)
+    fitted = np.empty(n)
+    for i in range(n):
+        # Define the window boundaries
+        start = max(0, i - bandwidth)
+        end = min(n, i + bandwidth + 1)
+        window_y = y[start:end]
+        window_x = np.arange(start, end) - i
+        # Compute weights
+        weights = gaussian_kernel(window_x, bandwidth)
+        weights_sum = weights.sum()
+        if weights_sum > 0:
+            fitted[i] = np.dot(weights, window_y) / weights_sum
+        else:
+            fitted[i] = y[i]  # Fallback to the actual value if weights sum to zero
+    return fitted
+
+
+# @njit(parallel=True)
+# def rolling_std(residuals, window):
+#     """
+#     Compute rolling standard deviation.
+#
+#     Parameters:
+#     - residuals: 1D array of residuals.
+#     - window: Integer specifying the window size.
+#
+#     Returns:
+#     - stds: 1D array of rolling standard deviations.
+#     """
+#     n = len(residuals)
+#     stds = np.empty(n)
+#     for i in range(n):
+#         start = max(0, i - window + 1)
+#         end = i + 1
+#         window_residuals = residuals[start:end]
+#         mean = 0.0
+#         for val in window_residuals:
+#             mean += val
+#         mean /= end - start
+#         var = 0.0
+#         for val in window_residuals:
+#             var += (val - mean) ** 2
+#         var /= end - start
+#         stds[i] = np.sqrt(var)
+#     return stds
+
+
+@njit(parallel=True)
+def rolling_std(residuals, window):
+    n = len(residuals)
+    stds = np.empty(n)
+
+    # Initialize the first window
+    window_sum = 0.0
+    window_sum_sq = 0.0
+    for i in range(min(window, n)):
+        window_sum += residuals[i]
+        window_sum_sq += residuals[i] ** 2
+
+    # Calculate std for the first window
+    if window > 0:
+        mean = window_sum / window
+        var = (window_sum_sq / window) - (mean**2)
+        stds[window - 1] = np.sqrt(
+            max(var, 0)
+        )  # max to avoid negative values due to floating point errors
+
+    # Rolling calculation for the rest
+    for i in range(window, n):
+        # Remove the oldest value
+        window_sum -= residuals[i - window]
+        window_sum_sq -= residuals[i - window] ** 2
+
+        # Add the newest value
+        window_sum += residuals[i]
+        window_sum_sq += residuals[i] ** 2
+
+        # Calculate mean and variance
+        mean = window_sum / window
+        var = (window_sum_sq / window) - (mean**2)
+        stds[i] = np.sqrt(max(var, 0))
+
+    # Fill in the first window-1 elements
+    if window > 1:
+        stds[: window - 1] = stds[window - 1]
+
+    return stds
 
 
 # Main class for the live trading chart and strategy
@@ -513,11 +574,11 @@ class BTCLiveChart(QMainWindow):
             timeperiod=ATR_LENGTH,
         )
 
-        # Calculate Nadaraya-Watson envelopes
+        # Calculate Nadaraya-Watson envelopes using custom NumPy implementation
         self.calculate_nadaraya_watson()
 
     def calculate_nadaraya_watson(self):
-        """Calculate Nadaraya-Watson envelopes."""
+        """Calculate Nadaraya-Watson envelopes using a Numba-optimized implementation."""
         df = self.data[["Close"]].dropna()
         if len(df) < BANDWIDTH:
             # Ensure columns exist in self.data, set to NaN
@@ -526,24 +587,21 @@ class BTCLiveChart(QMainWindow):
             self.data["Lower_Envelope"] = np.nan
             return  # Not enough data
 
+        # Reset index to have integer index
         df = df.reset_index()
-        df["index"] = np.arange(len(df))
-
-        X = df["index"].values.reshape(-1, 1)
         y = df["Close"].values
 
-        model = KernelReg(endog=y, exog=X, var_type="c", bw=[BANDWIDTH])
-        fitted_values, _ = model.fit(X)
+        # Compute NW fitted values
+        nw_fitted = nadaraya_watson(y, BANDWIDTH)
 
-        df["NW_Fitted"] = fitted_values
-        residuals = df["Close"] - df["NW_Fitted"]
-        std_dev = np.std(residuals)
+        df["NW_Fitted"] = nw_fitted
+        residuals = df["Close"].values - df["NW_Fitted"].values
 
-        df["Upper_Envelope"] = df["NW_Fitted"] + NW_MULT * std_dev
-        df["Lower_Envelope"] = df["NW_Fitted"] - NW_MULT * std_dev
+        # Compute rolling standard deviation of residuals
+        rolling_std_values = rolling_std(residuals, BANDWIDTH)
 
-        if "timestamp" not in df.columns:
-            df["timestamp"] = self.data.index
+        df["Upper_Envelope"] = df["NW_Fitted"] + NW_MULT * rolling_std_values
+        df["Lower_Envelope"] = df["NW_Fitted"] - NW_MULT * rolling_std_values
 
         df.set_index("timestamp", inplace=True)
 
